@@ -525,6 +525,16 @@ class Game:
         self.turn = 1
         self.current_player_idx = 0
         
+        # === START OF GAME: Trigger effects for cards in deck/hand ===
+        for player in self.players:
+            # Check deck and hand for Start of Game cards
+            all_potential_cards = player.deck + player.hand
+            for card in all_potential_cards:
+                if card.data.start_of_game:
+                    handler = self._get_effect_handler(card.card_id, "on_start_of_game")
+                    if handler:
+                        handler(self, player, card)
+        
         # First player starts their turn
         self.fire_event("on_turn_start", self.current_player)
         self.current_player.start_turn()
@@ -612,6 +622,16 @@ class Game:
         # Track elementals for synergy
         if card.data.race and 'ELEMENTAL' in str(card.data.race):
             player.elementals_played_this_turn += 1
+            
+        # === OUTCAST: Check position in hand ===
+        # Must be leftmost (index 0) or rightmost (last index)
+        hand_idx = player.hand.index(card) if card in player.hand else -1
+        is_outcast = (hand_idx == 0 or hand_idx == len(player.hand) - 1)
+        card._outcast_active = is_outcast
+        
+        # === QUICKDRAW: Check if added to hand this turn ===
+        is_quickdraw = getattr(card, 'turn_added_to_hand', -1) == self.turn
+        card._quickdraw_active = is_quickdraw
         
         if card.card_type == CardType.MINION:
             result = self._play_minion(card, target, position)
@@ -627,6 +647,18 @@ class Game:
             result = self._play_location(card, position)
         else:
             return False
+        
+        # === MINIATURIZE: Add 1/1 copy to hand ===
+        if result and card.data.miniaturize and len(player.hand) < 10:
+            from simulator.factory import create_card
+            mini_copy = create_card(card.card_id, self)
+            if mini_copy:
+                mini_copy._attack = 1
+                mini_copy._health = 1
+                mini_copy._max_health = 1
+                mini_copy._cost = 1
+                mini_copy.mini = True
+                player.add_to_hand(mini_copy)
         
         # === ECHO: Add a copy back to hand ===
         if result and is_echo and len(player.hand) < 10:
@@ -660,6 +692,26 @@ class Game:
         """Play a minion card."""
         minion = card if isinstance(card, Minion) else Minion(card.data, self)
         player = self.current_player
+        
+        # === MAGNETIC: Check if played to the left of a Mech ===
+        if minion.data.magnetic and position != -1 and position < len(player.board):
+            target_mech = player.board[position]
+            if target_mech.data.race and 'MECH' in str(target_mech.data.race):
+                # Fuse into the target mech
+                target_mech._attack += minion.attack
+                target_mech._health += minion.health
+                target_mech._max_health += minion.max_health
+                # Transfer keywords
+                if minion.taunt: target_mech._taunt = True
+                if minion.divine_shield: target_mech._divine_shield = True
+                if minion.rush: target_mech._rush = True
+                if minion.lifesteal: target_mech._lifesteal = True
+                if minion.poisonous: target_mech._poisonous = True
+                if minion.windfury: target_mech._windfury = True
+                
+                # Magnetic play is successful but doesn't summon a new entity
+                self.fire_event("on_minion_played", minion)
+                return True
         
         if not player.summon(minion, position):
             return False
@@ -1027,6 +1079,10 @@ class Game:
                         
                         # === CORPSE: Death Knight gains a corpse ===
                         entity.controller.corpses += 1
+                        
+                        # === STARSHIP: Components are added to storage ===
+                        if entity.data.starship_piece:
+                            entity.controller.starship_pieces.append(entity.card_id)
                         
                         # === INFUSE: Advance infuse on cards in hand ===
                         for card in entity.controller.hand:

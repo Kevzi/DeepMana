@@ -91,6 +91,9 @@ class Player(Entity):
         self.jade_counter: int = 0     # Current jade golem size
         self.excavate_progress: int = 0  # Excavate tier (0-3, resets at 4)
         
+        # Starship Pieces
+        self.starship_pieces: List[str] = []  # IDs of pieces collected
+        
         # Status
         self.conceded: bool = False
         self.opponent: Optional[Player] = None
@@ -206,6 +209,9 @@ class Player(Entity):
                 self.graveyard.append(card)
             else:
                 card.zone = Zone.HAND
+                # Track turn for Quickdraw
+                if self._game:
+                    card.turn_added_to_hand = self._game.turn
                 self.hand.append(card)
                 self.cards_drawn_this_game.append(card.card_id)
                 drawn.append(card)
@@ -244,6 +250,9 @@ class Player(Entity):
         
         card.controller = self
         card.zone = Zone.HAND
+        # Track turn for Quickdraw
+        if self._game:
+            card.turn_added_to_hand = self._game.turn
         self.hand.append(card)
         return True
     
@@ -552,6 +561,38 @@ class Player(Entity):
         # TODO: Give excavate rewards based on tier
         # For now, just return the tier
         return current_tier
+    
+    def launch_starship(self) -> None:
+        """Launch the Starship, combining all collected pieces."""
+        if not self.starship_pieces or len(self.board) >= 7:
+            return
+            
+        from simulator.factory import create_card
+        from simulator.entities import Minion
+        
+        # Create base Starship (usually a specific token or the 'Starship' card)
+        # We'll use a generic token for now
+        starship_data = create_card("STARSHIP_TOKEN", self._game).data
+        ship = Minion(starship_data, self._game)
+        ship.name = "The Starship"
+        ship.controller = self
+        
+        # Sum stats and abilities from all pieces
+        for piece_id in self.starship_pieces:
+            piece_card = create_card(piece_id, self._game)
+            if piece_card:
+                ship._attack += piece_card.data.attack
+                ship._health += piece_card.data.health
+                ship._max_health += piece_card.data.health
+                # Copy keywords
+                if piece_card.data.taunt: ship._taunt = True
+                if piece_card.data.divine_shield: ship._divine_shield = True
+                if piece_card.data.rush: ship._rush = True
+                if piece_card.data.lifesteal: ship._lifesteal = True
+                
+        # Clear pieces after launch
+        self.starship_pieces = []
+        self.summon(ship)
     
     def __repr__(self) -> str:
         return f"<Player '{self.name}' HP:{self.health} Mana:{self.mana}/{self.mana_crystals}>"
