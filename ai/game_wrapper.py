@@ -89,19 +89,22 @@ class HearthstoneGame:
         import random as rnd
         
         # Use META DECKS for training (competitive decks from HSGuru)
-        if deck1 is None:
+        if deck1 is None and deck2 is None:
+            # Force MIRROR MATCH for better training balance
             class1, deck1_ids = DeckGenerator.get_random_meta_deck()
+            class2, deck2_ids = class1, deck1_ids.copy()
         else:
-            deck1_ids = deck1
-            if class1 is None:
-                class1 = "MAGE"
-            
-        if deck2 is None:
-            class2, deck2_ids = DeckGenerator.get_random_meta_deck()
-        else:
-            deck2_ids = deck2
-            if class2 is None:
-                class2 = "WARRIOR"
+            if deck1 is None:
+                class1, deck1_ids = DeckGenerator.get_random_meta_deck()
+            else:
+                deck1_ids = deck1
+                if class1 is None: class1 = "MAGE"
+                
+            if deck2 is None:
+                class2, deck2_ids = DeckGenerator.get_random_meta_deck()
+            else:
+                deck2_ids = deck2
+                if class2 is None: class2 = "WARRIOR"
         
         # Get hero IDs for the classes
         hero1 = HERO_IDS.get(class1, "HERO_08")

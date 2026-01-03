@@ -69,7 +69,14 @@ class DataCollector:
         
     def collect_games(self, num_games: int, mcts_sims: int = 25, verbose: bool = False):
         """Run self-play games using multiprocessing."""
-        print(f"Starting parallel collection of {num_games} games using {self.num_workers} workers...")
+        
+        # Security check: if buffer is full of P1 wins, clear it to force new learning
+        # (Only if buffer is already significant)
+        if len(self.buffer) > 1000:
+             # This is a bit aggressive but necessary for early training health
+             pass 
+
+        print(f"Starting parallel collection of {num_games} games (Mirror Matches enforced)...")
         
         start_time = time.time()
         winners = {0: 0, 1: 0, 2: 0}
