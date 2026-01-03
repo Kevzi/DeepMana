@@ -549,6 +549,7 @@ class Game:
         # Divine Shield absorbs damage
         if target.divine_shield:
             target._divine_shield = False
+            self.fire_event("on_divine_shield_lost", target)
             return 0
         
         # Deal damage
