@@ -248,6 +248,93 @@ class Game:
         }
         return True
 
+    def invoke(self, player: Player) -> None:
+        """Invoke Galakrond - triggers the current Galakrond hero power."""
+        # Find Galakrond hero power or current hero power if it's already Galakrond
+        self._log_action("invoke", {"player": player.name})
+        player.hero_power.use() # Simplified: just use hero power for now
+        
+        # Increment Galakrond upgrade counter
+        player.galakrond_invocations = getattr(player, 'galakrond_invocations', 0) + 1
+        self.fire_event("on_invoke", player)
+
+    def adapt(self, minion: Card, callback: Optional[Callable] = None) -> bool:
+        """Adapt a minion: choice of 3 from 10 bonuses."""
+        from .factory import create_card
+        
+        # The 10 Adapt options (as dummy cards for choice UI)
+        adapt_options = [
+            "ADAPT_01", # +1/+1
+            "ADAPT_02", # Divine Shield
+            "ADAPT_03", # Taunt
+            "ADAPT_04", # Poisonous
+            "ADAPT_05", # Liquid Membrane (Can't be targeted)
+            "ADAPT_06", # Windfury
+            "ADAPT_07", # Stealth until next turn
+            "ADAPT_08", # Deathrattle: Summon 2 1/1s
+            "ADAPT_09", # +3 Health
+            "ADAPT_10", # +3 Attack
+        ]
+        
+        import random
+        chosen_ids = random.sample(adapt_options, 3)
+        options = [create_card(cid, minion.controller) for cid in chosen_ids]
+        
+        def adapt_callback(game, choice):
+            if choice.card_id == "ADAPT_01": minion._attack += 1; minion._health += 1; minion._max_health += 1
+            elif choice.card_id == "ADAPT_02": minion._divine_shield = True
+            elif choice.card_id == "ADAPT_03": minion._taunt = True
+            elif choice.card_id == "ADAPT_04": minion._poisonous = True
+            elif choice.card_id == "ADAPT_05": minion.cant_be_targeted = True
+            elif choice.card_id == "ADAPT_06": minion._windfury = True
+            elif choice.card_id == "ADAPT_07": minion._stealth = True
+            elif choice.card_id == "ADAPT_08": minion._dark_gift_deathrattle = "summon_two_1_1" # Reuse deathrattle system
+            elif choice.card_id == "ADAPT_09": minion._health += 3; minion._max_health += 3
+            elif choice.card_id == "ADAPT_10": minion._attack += 3
+            
+            if callback:
+                callback(game, minion)
+
+        self.pending_choices = {
+            "source": minion,
+            "options": options,
+            "callback": adapt_callback
+        }
+        return True
+
+    def joust(self, initiator: Player) -> bool:
+        """
+        Perform a Joust.
+        Reveals a minion from each player's deck. 
+        Initiator wins if their minion costs more.
+        """
+        opponent = self.get_opponent(initiator)
+        
+        # Get random minions from decks
+        from .enums import CardType
+        my_minions = [c for c in initiator.deck if c.card_type == CardType.MINION]
+        opp_minions = [c for c in opponent.deck if c.card_type == CardType.MINION]
+        
+        if not my_minions:
+            return False
+        
+        import random
+        my_card = random.choice(my_minions)
+        opp_card = random.choice(opp_minions) if opp_minions else None
+        
+        opp_cost = opp_card.cost if opp_card else -1
+        
+        win = my_card.cost > opp_cost
+        
+        self._log_action("joust", {
+            "initiator": initiator.name,
+            "my_card": my_card.card_id,
+            "opp_card": opp_card.card_id if opp_card else None,
+            "win": win
+        })
+        
+        return win
+
     def _apply_dark_gift(self, minion: Card) -> None:
         """
         Apply a random Dark Gift bonus to a minion.

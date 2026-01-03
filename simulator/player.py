@@ -553,16 +553,30 @@ class Player(Entity):
         """
         Excavate: Advance excavation tier and get reward based on tier.
         Tier 1: Common treasure, Tier 2: Rare, Tier 3: Epic, Tier 4: Legendary (resets)
-        Returns the current tier (1-4).
         """
         self.excavate_progress += 1
         current_tier = self.excavate_progress
         
+        # Excavate treasures pools (simplified IDs for the simulator)
+        treasures = {
+            1: ["WW_400t1", "WW_400t2", "WW_400t3", "WW_400t4", "WW_400t5"], # Tier 1
+            2: ["WW_400t6", "WW_400t7", "WW_400t8", "WW_400t9"],             # Tier 2
+            3: ["WW_400t10", "WW_400t11", "WW_400t12"],                      # Tier 3
+            4: ["WW_401"]                                                    # Tier 4 (Legendary generic)
+        }
+        
+        tier_to_use = min(current_tier, 4)
+        import random
+        treasure_id = random.choice(treasures.get(tier_to_use, treasures[1]))
+        
+        from simulator.factory import create_card
+        treasure_card = create_card(treasure_id, self)
+        if treasure_card:
+            self.add_to_hand(treasure_card)
+        
         if self.excavate_progress >= 4:
             self.excavate_progress = 0  # Reset after tier 4
-        
-        # TODO: Give excavate rewards based on tier
-        # For now, just return the tier
+            
         return current_tier
     
     def launch_starship(self) -> None:
