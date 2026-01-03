@@ -186,13 +186,14 @@ class Game:
         new_game._deathrattle_handlers = self._deathrattle_handlers # Stateless
         
         return new_game
+
+    def discover(self, player: Player, options: List[Card], callback: Callable) -> None:
         """Pause game and wait for player to choose one of 3 cards."""
         self.pending_choices = {
             "player": player,
             "options": options,
             "callback": callback
         }
-        # In a real RL env, this would wait for an action of type CHOOSE_DISCOVER
     
     def choose_discover(self, choice_idx: int) -> bool:
         """Resolve a pending discover choice."""
@@ -410,6 +411,7 @@ class Game:
         })
         
         player.cards_played_this_turn += 1
+        player.combo_cards_played += 1
         player.cards_played_this_game.append(card.card_id)
         self.fire_event("on_card_played", card, target)
         

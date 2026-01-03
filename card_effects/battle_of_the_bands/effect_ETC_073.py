@@ -2,5 +2,7 @@
 
 
 def setup(game, source):
-    count = source.controller.combo_cards_played = getattr(source.controller, 'combo_cards_played', 0)
+    if not source.controller:
+        return
+    count = getattr(source.controller, 'combo_cards_played', 0)
     source.attack += count; source.max_health += count; source.health += count

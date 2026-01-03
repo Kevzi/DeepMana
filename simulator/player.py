@@ -60,6 +60,21 @@ class Player(Entity):
         self.minions_played_this_game_list: List[str] = []
         self.dead_minions: List[str] = []  # Graveyard (card IDs)
         self.cards_drawn_this_game: List[str] = []
+        
+        # Turn based trackers
+        self.damage_taken_this_turn: int = 0
+        self.healing_taken_this_turn: int = 0
+        self.cards_played_this_turn: int = 0
+        self.minions_played_this_turn: int = 0
+        self.spells_played_this_turn: int = 0
+        self.hero_power_uses_this_turn: int = 0
+        
+        # Combo tracker (Rogue)
+        self.combo_cards_played: int = 0
+        
+        # Status
+        self.conceded: bool = False
+        self.opponent: Optional[Player] = None
 
     def clone(self) -> 'Player':
         """Create a deep copy of the player (excluding entities managed by Game.clone)."""
@@ -95,20 +110,6 @@ class Player(Entity):
                      setattr(new_player, k, set(v))
                      
         return new_player
-        self.damage_taken_this_turn: int = 0
-        self.healing_taken_this_turn: int = 0
-        
-        # Current turn counters
-        self.cards_played_this_turn: int = 0
-        self.minions_played_this_turn: int = 0
-        self.spells_played_this_turn: int = 0
-        self.hero_power_uses_this_turn: int = 0
-        
-        # Status
-        self.conceded: bool = False
-        
-        # Opponent reference
-        self.opponent: Optional[Player] = None
     
     @property
     def spell_damage(self) -> int:
@@ -330,6 +331,7 @@ class Player(Entity):
         self.minions_played_this_turn = 0
         self.spells_played_this_turn = 0
         self.hero_power_uses_this_turn = 0
+        self.combo_cards_played = 0
         
         # Draw a card
         self.draw(1)
