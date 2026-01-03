@@ -55,19 +55,22 @@
 | Tâche | Statut |
 |-------|--------|
 | `replay_buffer.py` — Stockage trajectoires | ✅ |
-| `data_collector.py` — Self-play parallèle | ✅ |
+| `data_collector.py` — Self-play parallèle (8 workers) | ✅ |
 | `trainer.py` — Boucle PyTorch | ✅ |
+| TensorBoard & Resume Functionality | ✅ |
 | Proof of Life (Loss qui descend) | ✅ |
 
 ---
 
-## 🚧 Phase 5: Évaluation & Optimisation
+## ✅ Phase 5: Évaluation & Optimisation
 
 | Tâche | Statut |
 |-------|--------|
 | Script `evaluation.py` | ✅ |
-| Optimisation MCTS | ⏳ |
-| Hyperparameter Tuning | ⏳ |
+| Intégration Meta Decks (HSGuru) | ✅ |
+| Auto-Validation des cartes (`verify_effects.py`) | ✅ |
+| Optimisation MCTS | ✅ |
+| Hyperparameter Tuning | 🚧 |
 
 ---
 
@@ -100,38 +103,34 @@
 
 | Tâche | Statut |
 |-------|--------|
-| `overlay/overlay_window.py` — Fenêtre transparente | ✅ |
+| `overlay/overlay_window.py` — Premium Design | ✅ |
+| Glassmorphism & Animations | ✅ |
 | `overlay/geometry.py` — Calcul positions écran | ✅ |
 | Flèches vertes (cartes ciblées) | ✅ |
 | Cercles dorés (cartes sans cible) | ✅ |
 | `runtime/live_assistant.py` — Orchestrateur | ✅ |
-| Suggestions de cartes | ✅ |
-| Suggestions d'attaques | ✅ |
-| Détection Taunt | ✅ |
-| Filtre par mana | ✅ |
+| Suggestions de cartes & attaques | ✅ |
+| Affichage Win Probability (%) | ✅ |
 
 ---
 
-## ⏳ Phase 9: Fonctionnalités Avancées
+## ✅ Phase 10: Intégration IA Entraînée
 
 | Tâche | Statut |
 |-------|--------|
-| Pouvoir Héroïque (suggestion + overlay) | ⏳ |
-| Lieux / Locations | ⏳ |
-| Multi-flèches (plusieurs suggestions) | ⏳ |
-| Parsing mana (tag RESOURCES) | ⏳ |
-| Calibrage géométrie écran | ⏳ |
+| Connecter `model.py` à `live_assistant.py` | ✅ |
+| MCTS en temps réel (inférence) | ✅ |
+| Inférence GPU optimisée | ✅ |
 
 ---
 
-## ⏳ Phase 10: Intégration IA Entraînée
+## ⏳ Phase 11: Export & Futur
 
 | Tâche | Statut |
 |-------|--------|
-| Connecter `model.py` à `live_assistant.py` | ⏳ |
-| MCTS en temps réel (inférence) | ⏳ |
 | Export ONNX | ⏳ |
-| Inférence GPU optimisée | ⏳ |
+| Version mobile / Inférence légère | ⏳ |
+| Analyse d'archétype adverse (Spy Mode) | ⏳ |
 
 ---
 
@@ -144,9 +143,9 @@
 | Phase 2 — Self-Play | ✅ Terminée |
 | Phase 3 — Core AI | ✅ Terminée |
 | Phase 4 — Training | ✅ Terminée |
-| Phase 5 — Évaluation | 🚧 En cours |
+| Phase 5 — Évaluation | ✅ Terminée |
 | Phase 6 — GUI | ⏳ À venir |
 | Phase 7 — Runtime | ✅ Terminée |
 | Phase 8 — Overlay | ✅ Terminée |
-| Phase 9 — Avancé | ⏳ À venir |
-| Phase 10 — Intégration | ⏳ À venir |
+| Phase 10 — Intégration | ✅ Terminée |
+| Phase 11 — Futur | ⏳ À venir |

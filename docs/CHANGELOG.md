@@ -4,17 +4,26 @@ Toutes les modifications notables du projet HearthstoneOne.
 
 ---
 
-## [2026-01-03] — Live Assistant & Overlay
+## [2026-01-03] — High-Speed Training & Premium Overlay
 
 ### ✨ Ajouté
-- **`runtime/live_assistant.py`** — Orchestrateur complet combinant Parser + Overlay + IA (dummy)
-- **`overlay/overlay_window.py`** — Fenêtre transparente PyQt6 avec dessin de flèches et cercles
-- **`overlay/geometry.py`** — Calcul des positions écran (main, board, héros)
-- **`runtime/parser.py`** — Support FULL_ENTITY + format réel Hearthstone
-- Extraction de `zonePos` depuis les logs
-- Suggestions d'attaque (créature → cible)
-- Détection des Taunt adverses
-- Cercles dorés pour les cartes sans cible
+- **Multiprocessing Support** — `training/data_collector.py` utilise désormais 8 workers parallèles.
+- **Premium Overlay** — Nouveau design Glassmorphism avec néons et animations de pulsation.
+- **Win Probability** — Affichage dynamique des probabilités de victoire (IA Value Head).
+- **TensorBoard** — Suivi en direct des metrics d'entraînement (Loss, Winners, Buffer).
+- **Meta Decks Support** — Intégration de 120+ decks meta (HSGuru Janvier 2026).
+- **Auto-Validator** — `tools/verify_effects.py` pour valider 1800+ scripts d'effets.
+- **Resume System** — Sauvegarde et chargement automatique des checkpoints (poids + optimizer).
+
+### 🔧 Modifié
+- **`training/data_collector.py`** — Refonte complète pour le parallélisme.
+- **`runtime/live_assistant.py`** — Intégration complète de l'IA AlphaZero pour les suggestions.
+- **`overlay/overlay_window.py`** — Améliorations esthétiques majeures.
+- **Card Fixes** — Correction massive des signatures de triggers (on_turn_end, etc.).
+
+---
+
+## [2026-01-03] — Live Assistant & Overlay (V1)
 
 ### 🔧 Modifié
 - **`runtime/log_watcher.py`** — Auto-reconnexion si lancé avant Hearthstone
