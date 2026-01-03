@@ -3,7 +3,7 @@
 
 def setup(game, source):
     source.cant_attack = True
-    def on_end(game, trig_src):
+    def on_end(game, trig_src, turn_count):
         if game.current_player == trig_src.controller:
             opp = game.get_opponent(trig_src.controller).board + [game.get_opponent(trig_src.controller).hero]
             import random
