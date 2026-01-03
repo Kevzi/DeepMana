@@ -42,7 +42,7 @@ class Trainer:
         # Components
         self.model = HearthstoneModel(self.input_dim, self.action_dim).to(self.device)
         self.buffer = ReplayBuffer(self.buffer_capacity)
-        self.collector = DataCollector(self.model, self.buffer, num_workers=4)
+        self.collector = DataCollector(self.model, self.buffer, num_workers=8)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
         # TensorBoard

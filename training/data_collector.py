@@ -18,6 +18,9 @@ from ai.actions import Action
 
 def _play_game_worker(model_state, input_dim, action_dim, mcts_sims, game_idx, verbose):
     """Worker function for multiprocessing."""
+    # Crucial for Windows: limit torch threads per process to save RAM
+    torch.set_num_threads(1)
+    
     # Each process needs its own model instance on CPU
     model = HearthstoneModel(input_dim, action_dim)
     model.load_state_dict(model_state)
