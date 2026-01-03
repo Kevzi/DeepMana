@@ -44,6 +44,7 @@ class Trainer:
         self.buffer = ReplayBuffer(self.buffer_capacity)
         self.collector = DataCollector(self.model, self.buffer, num_workers=8)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.stop_flag = False
         
         # TensorBoard
         self.writer = SummaryWriter(log_dir="runs/hearthstone_training")
@@ -58,6 +59,10 @@ class Trainer:
         print(f"Starting training on {self.device} from iteration {start_iter + 1}...")
         
         for iteration in range(start_iter, self.num_iterations):
+            if self.stop_flag:
+                print("Arrêt de l'entraînement demandé par l'utilisateur.")
+                break
+                
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")
             
             # 1. Self-Play
