@@ -7,8 +7,8 @@ def battlecry(game, source, target):
     played = getattr(player, 'rafaams_played', set())
     # The 'rest' means the 9 others
     others = {
-        'TIME_005t1', 'TIME_005t2', 'TIME_005t3', 
-        'TIME_005t4', 'TIME_005t5', 'TIME_005t6', 
+        'TIME_005t1', 'TIME_005t2', 'TIME_005t3'
+        'TIME_005t4', 'TIME_005t5', 'TIME_005t6'
         'TIME_005t7', 'TIME_005t8', 'TIME_005t9'
     }
     if others.issubset(played):

@@ -1,5 +1,6 @@
 
-from simulator.entities import Card, Player
+from simulator.entities import Card
+from simulator.player import Player
 from simulator.game import Game
 from simulator.factory import create_card
 
@@ -11,8 +12,8 @@ def on_play(game: Game, player: Player, card: Card, target=None):
     
     # We create temporary "Choice" cards for discovery
     choices = [
-        {"id": "BOB_CHOICE_1", "name": "Hire a Champion", "text": "Get a random 6-Cost minion."},
-        {"id": "BOB_CHOICE_2", "name": "Refresh Drinks", "text": "Gain 3 Temporary Mana."},
+        {"id": "BOB_CHOICE_1", "name": "Hire a Champion", "text": "Get a random 6-Cost minion."}
+        {"id": "BOB_CHOICE_2", "name": "Refresh Drinks", "text": "Gain 3 Temporary Mana."}
         {"id": "BOB_CHOICE_3", "name": "Strong Arms", "text": "Give your minions +2/+2."}
     ]
     

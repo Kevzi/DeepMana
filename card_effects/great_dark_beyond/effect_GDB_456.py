@@ -1,12 +1,13 @@
 
-from simulator.entities import Card, Player
+from simulator.entities import Card
+from simulator.player import Player
 from simulator.game import Game
 
 def on_play(game: Game, player: Player, card: Card, target=None):
     damage = 4
     
     # If elemental was played last turn, we can choose target.
-    # If no target provided (e.g. random play by AI or manual choice), 
+    # If no target provided (e.g. random play by AI or manual choice)
     # we use the provided target.
     # Actually, the 'target' is passed by Game.play_card if the card requires it.
     

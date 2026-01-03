@@ -303,17 +303,11 @@ class HearthstoneGame:
     def clone(self) -> "HearthstoneGame":
         """
         Create a deep copy of the game for MCTS simulation.
-        
-        Note: Fireplace doesn't support deep copying games directly,
-        so this creates a new game with the same state (approximate).
-        For now, returns self - proper implementation needs game serialization.
         """
-        # TODO: Implement proper game cloning for MCTS
-        import copy
-        new_game = HearthstoneGame(self.perspective)
-        new_game._game = self._game  # Shallow copy - needs improvement
-        new_game._step_count = self._step_count
-        return new_game
+        new_wrapper = HearthstoneGame(self.perspective)
+        new_wrapper._game = self.game.clone()
+        new_wrapper._step_count = self._step_count
+        return new_wrapper
     
     def simulate_random_playout(self) -> float:
         """Simulate a random playout until game end."""

@@ -122,12 +122,22 @@ class DeckGenerator:
                 DeckGenerator._build_dbf_map()
                 
             decoded = parse_deckstring(deck_string)
-            cards = decoded[0]
-            sideboards_raw = decoded[2]  # Format: list of (card_dbf_id, parent_dbf_id)
             
+            # Handle object-based return (newer hearthstone lib) or tuple-based
+            if hasattr(decoded, "cards"):
+                cards_raw = decoded.cards
+                heroes_raw = decoded.heroes
+                sideboards_raw = getattr(decoded, "sideboards", [])
+                format_raw = decoded.format
+            else:
+                cards_raw = decoded[0]
+                heroes_raw = decoded[1]
+                format_raw = decoded[2] if len(decoded) > 2 else 1
+                sideboards_raw = decoded[3] if len(decoded) > 3 else []
+                
             # 1. Main deck cards
             result_cards = []
-            for dbf_id, count in cards:
+            for dbf_id, count in cards_raw:
                 if count > 2 or dbf_id < 100:
                     continue
                 card_id = DeckGenerator._dbf_map.get(dbf_id)
@@ -138,7 +148,15 @@ class DeckGenerator:
             
             # 2. Sideboards (Zilliax modules, ETC Band)
             sideboards = {}
-            for module_dbf, parent_dbf in sideboards_raw:
+            for entry in sideboards_raw:
+                if len(entry) == 2:
+                    module_dbf, parent_dbf = entry
+                elif len(entry) >= 3:
+                    # In recent versions it's often (dbf_id, count, parent_dbf_id)
+                    module_dbf, _, parent_dbf = entry[:3]
+                else:
+                    continue
+                    
                 parent_id = DeckGenerator._dbf_map.get(parent_dbf, f"DBF:{parent_dbf}")
                 module_id = DeckGenerator._dbf_map.get(module_dbf, f"DBF:{module_dbf}")
                 

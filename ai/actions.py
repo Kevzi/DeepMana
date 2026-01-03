@@ -154,6 +154,10 @@ class Action:
             else:
                 target_offset = 1 + (self.target_index or 0)
             return base + attacker_offset + target_offset
+            
+        elif self.action_type == ActionType.CHOOSE:
+            base = 175
+            return base + (self.choice_index or 0)
         
         return 0
     
@@ -200,6 +204,9 @@ class Action:
             else:
                 return cls.attack(attacker_index, target_index=target_offset - 1)
         
+        elif 175 <= index <= 177:
+            return cls.choose(index - 175)
+            
         return cls.end_turn()
     
     def to_dict(self) -> dict:
@@ -231,4 +238,4 @@ class Action:
 
 
 # Action space constants
-ACTION_SPACE_SIZE = 175  # Total number of possible action indices
+ACTION_SPACE_SIZE = 180  # Expanded for choose actions

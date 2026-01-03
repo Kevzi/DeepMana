@@ -17,82 +17,109 @@ class FeatureEncoder:
     
     def __init__(self):
         # Define dimensions
-        self.scalar_dim = 10 # Mana, Max Mana, Health P1, Health P2, Deck1, Deck2, Hand1, Hand2, Graveyard1, Graveyard2
-        self.card_dim = 20 # Cost, Attack, Health, Type (one-hot), Keywords (one-hot), etc.
+        self.scalar_dim = 20 # Mana, Health, Armor, Overload, Fatigue, Deck, Hand, etc.
+        self.card_dim = 25   # Cost, Atk, HP, MaxHP, Type(4), Keywords(10), State(5), etc.
         self.max_hand = 10
         self.max_board = 7
         self.input_dim = self.scalar_dim + (self.max_hand * 2 * self.card_dim) + (self.max_board * 2 * self.card_dim) 
-        # Note: This is a simplified dense representation. 
-        # A Transformer would take a sequence of cards.
         
     def encode(self, state: GameState) -> torch.Tensor:
         """Encodes state to tensor."""
-        # 1. Scalars
+        # 1. Scalars (Global context)
+        p1, p2 = state.friendly_player, state.enemy_player
         scalars = [
-            state.friendly_player.mana,
-            state.friendly_player.max_mana,
-            state.friendly_player.hero.health,
-            state.enemy_player.hero.health,
-            state.friendly_player.deck_size,
-            state.enemy_player.deck_size,
-            len(state.friendly_player.hand),
-            len(state.enemy_player.hand), # Note: enemy hand is list of unknowns usually, but length is known
-            state.friendly_player.fatigue,
-            state.enemy_player.fatigue,
+            p1.mana / 10.0,
+            p1.max_mana / 10.0,
+            p1.hero.health / 30.0,
+            p1.hero.armor / 20.0,
+            p1.overload / 10.0,
+            p1.fatigue / 10.0,
+            len(p1.hand) / 10.0,
+            p1.deck_size / 30.0,
+            
+            p2.hero.health / 30.0,
+            p2.hero.armor / 20.0,
+            p2.overload / 10.0,
+            p2.fatigue / 10.0,
+            len(p2.hand) / 10.0,
+            p2.deck_size / 30.0,
+            
+            1.0 if state.is_my_turn else 0.0,
         ]
+        # Pad scalars to scalar_dim
+        scalars.extend([0.0] * (self.scalar_dim - len(scalars)))
         
-        # 2. Hand Cards (My hand only - Opponent hand is hidden/unknown mostly)
-        # For simplicity in this version, we zero-pad opponent hand features or use known info if available
-        # Ideally we mask unknown information.
-        
+        # 2. Hand Cards
         hand_features = []
-        for card in state.friendly_player.hand:
+        for card in p1.hand:
             hand_features.extend(self._encode_card(card))
-        # Pad
-        padding = [0] * self.card_dim * (self.max_hand - len(state.friendly_player.hand))
-        hand_features.extend(padding)
+        hand_features.extend([0.0] * (self.card_dim * (self.max_hand - len(p1.hand))))
         
-        # Opponent hand (Placeholder/Unknown)
-        opp_hand_features = [0] * self.card_dim * self.max_hand 
+        # Opponent hand (Hidden - limited info)
+        opp_hand_features = [0.0] * (self.card_dim * self.max_hand)
         
         # 3. Board Minions
         board_features = []
-        for minion in state.friendly_player.board:
+        for minion in p1.board:
             board_features.extend(self._encode_card(minion))
-        padding = [0] * self.card_dim * (self.max_board - len(state.friendly_player.board))
-        board_features.extend(padding)
+        board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p1.board))))
         
         opp_board_features = []
-        for minion in state.enemy_player.board:
+        for minion in p2.board:
             opp_board_features.extend(self._encode_card(minion))
-        padding = [0] * self.card_dim * (self.max_board - len(state.enemy_player.board))
-        opp_board_features.extend(padding)
+        opp_board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p2.board))))
         
         # Combine
         full_vector = scalars + hand_features + opp_hand_features + board_features + opp_board_features
-        
         return torch.tensor(full_vector, dtype=torch.float32)
 
-    def _encode_card(self, card_data) -> list:
-        """Helper to encode a single card."""
-        # This takes a dictionary or object relative to game_state.py structures
-        # Looking at game_state.py, hand/board are lists of dicts or objects?
-        # game_wrapper.py converts them.
+    def _encode_card(self, card) -> list:
+        """Detailed encoding of a card/minion."""
+        # Stats normalized roughly
+        res = [
+            getattr(card, 'cost', 0) / 10.0,
+            getattr(card, 'attack', 0) / 10.0,
+            getattr(card, 'health', 0) / 10.0,
+            getattr(card, 'max_health', 1) / 10.0,
+        ]
         
-        # Assuming card_data is a dictionary or object with attributes:
-        # cost, attack, health, type, etc.
+        # Card Type (One-hot: Minion, Spell, Weapon, Other)
+        ctype = getattr(card, 'card_type', 0)
+        res.extend([
+            1.0 if ctype == 4 else 0.0, # MINION
+            1.0 if ctype == 5 else 0.0, # SPELL
+            1.0 if ctype == 7 else 0.0, # WEAPON
+            1.0 if ctype not in [4, 5, 7] else 0.0
+        ])
         
-        # Safe access
-        cost = getattr(card_data, 'cost', 0)
-        attack = getattr(card_data, 'attack', 0)
-        health = getattr(card_data, 'health', 0)
+        # Keywords (Binary)
+        res.extend([
+            1.0 if getattr(card, 'taunt', False) else 0.0,
+            1.0 if getattr(card, 'divine_shield', False) else 0.0,
+            1.0 if getattr(card, 'rush', False) else 0.0,
+            1.0 if getattr(card, 'lifesteal', False) else 0.0,
+            1.0 if getattr(card, 'poisonous', False) else 0.0,
+            1.0 if getattr(card, 'stealth', False) else 0.0,
+            1.0 if getattr(card, 'windfury', False) else 0.0,
+            1.0 if getattr(card, 'reborn', False) else 0.0,
+            # New mechanics
+            1.0 if getattr(card, 'cleave', False) else 0.0,
+            1.0 if getattr(card, 'magnetic', False) else 0.0,
+        ])
         
-        features = [cost, attack, health]
+        # States
+        res.extend([
+            1.0 if getattr(card, 'dormant', 0) > 0 else 0.0,
+            1.0 if getattr(card, 'frozen', False) else 0.0,
+            1.0 if getattr(card, 'silenced', False) else 0.0,
+            1.0 if getattr(card, 'exhausted', False) else 0.0,
+            getattr(card, 'dormant', 0) / 5.0 # Counter value
+        ])
         
-        # Placeholder for one-hot encoding types/keywords
         # Fill rest to card_dim
-        features.extend([0] * (self.card_dim - len(features)))
-        return features
+        if len(res) < self.card_dim:
+            res.extend([0.0] * (self.card_dim - len(res)))
+        return res[:self.card_dim]
 
     @property
     def observation_shape(self):

@@ -1,5 +1,6 @@
 
-from simulator.entities import Card, Player
+from simulator.entities import Card
+from simulator.player import Player
 from simulator.game import Game
 from simulator.factory import create_card
 

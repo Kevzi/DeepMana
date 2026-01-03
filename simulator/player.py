@@ -217,8 +217,8 @@ class Player(Entity):
             else:
                 card.zone = Zone.HAND
                 # Track turn for Quickdraw
-                if self._game:
-                    card.turn_added_to_hand = self._game.turn
+                if self.game:
+                    card.turn_added_to_hand = self.game.turn
                 self.hand.append(card)
                 self.cards_drawn_this_game.append(card.card_id)
                 drawn.append(card)
@@ -258,8 +258,8 @@ class Player(Entity):
         card.controller = self
         card.zone = Zone.HAND
         # Track turn for Quickdraw
-        if self._game:
-            card.turn_added_to_hand = self._game.turn
+        if self.game:
+            card.turn_added_to_hand = self.game.turn
         self.hand.append(card)
         return True
     
@@ -379,11 +379,11 @@ class Player(Entity):
             if minion.dormant > 0:
                 minion._dormant -= 1
                 if minion.dormant == 0:
-                    if self._game:
-                        self._game.fire_event("on_awake", minion)
-                        handler = self._game._get_effect_handler(minion.card_id, "on_awake")
+                    if self.game:
+                        self.game.fire_event("on_awake", minion)
+                        handler = self.game._get_effect_handler(minion.card_id, "on_awake")
                         if handler:
-                            handler(self._game, self, minion)
+                            handler(self.game, self, minion)
         
         # Reset hero attacks
         if self.hero:
@@ -416,8 +416,8 @@ class Player(Entity):
             return False
         
         # Calculate current cost via game if available
-        if self._game:
-            current_cost = self._game.get_card_cost(self, card)
+        if self.game:
+            current_cost = self.game.get_card_cost(self, card)
         else:
             current_cost = card.cost
             
@@ -509,7 +509,7 @@ class Player(Entity):
         
         from simulator.factory import create_card
         
-        reward = create_card(self.quest_reward_id, self._game)
+        reward = create_card(self.quest_reward_id, self.game)
         if reward:
             self.add_to_hand(reward)
         
@@ -551,13 +551,13 @@ class Player(Entity):
         """Summon a Jade Golem (Jade counter increases each time)."""
         self.jade_counter = min(self.jade_counter + 1, 30)  # Max 30/30
         
-        if len(self.board) < 7 and self._game:
+        if len(self.board) < 7 and self.game:
             from simulator.factory import create_card
             from simulator.entities import Minion
             
-            jade = create_card("CS2_231", self._game)  # Wisp base
+            jade = create_card("CS2_231", self.game)  # Wisp base
             if jade:
-                m = Minion(jade.data, self._game)
+                m = Minion(jade.data, self.game)
                 m.attack = self.jade_counter
                 m.health = self.jade_counter
                 m.max_health = self.jade_counter
@@ -610,14 +610,14 @@ class Player(Entity):
         
         # Create base Starship (usually a specific token or the 'Starship' card)
         # We'll use a generic token for now
-        starship_data = create_card("STARSHIP_TOKEN", self._game).data
-        ship = Minion(starship_data, self._game)
+        starship_data = create_card("STARSHIP_TOKEN", self.game).data
+        ship = Minion(starship_data, self.game)
         ship.name = "The Starship"
         ship.controller = self
         
         # Sum stats and abilities from all pieces
         for piece_id in self.starship_pieces:
-            piece_card = create_card(piece_id, self._game)
+            piece_card = create_card(piece_id, self.game)
             if piece_card:
                 ship._attack += piece_card.data.attack
                 ship._health += piece_card.data.health
