@@ -22,13 +22,29 @@ class AssistantWorker(QThread):
     arrow_signal = pyqtSignal(object, object)  # Point, Point
     highlight_signal = pyqtSignal(object)  # Single Point for highlight circle
     
-    def __init__(self):
+    def __init__(self, use_model: bool = True):
         super().__init__()
         self.running = True
         self.game = Game()
         self.parser = LogParser(self.game)
         self.watcher = LogWatcher(self.handle_log_line)
         self.geometry = HearthstoneGeometry()
+        
+        # AI Brain (AlphaZero model)
+        self.use_model = use_model
+        self.brain = None
+        if use_model:
+            try:
+                from ai.brain import AIBrain
+                self.brain = AIBrain()
+                if self.brain.load_latest_model():
+                    print("AlphaZero model loaded successfully!")
+                else:
+                    print("No trained model found. Using dummy AI.")
+                    self.brain = None
+            except Exception as e:
+                print(f"Failed to load AI Brain: {e}")
+                self.brain = None
         
         # Initialize basic players for parser context
         p1 = Player("Player 1", self.game)
@@ -79,7 +95,7 @@ class AssistantWorker(QThread):
             self.arrow_signal.emit(None, None) # Clear arrows
 
     def think_and_suggest(self):
-        """AI Logic Placeholder with basic filters."""
+        """AI Logic - Uses AlphaZero model if available, fallback to dummy AI."""
         # Find any player with cards (workaround for player ID mapping)
         me = None
         for p in self.game.players:
@@ -90,6 +106,11 @@ class AssistantWorker(QThread):
         if not me:
             total = sum(len(p.hand) for p in self.game.players)
             self.status_signal.emit(f"Waiting... (Total cards: {total})")
+            return
+
+        # === USE ALPHAZERO MODEL IF AVAILABLE ===
+        if self.brain is not None:
+            self._suggest_with_brain(me)
             return
 
         # === PRIORITY 1: Playable Cards ===
@@ -157,8 +178,97 @@ class AssistantWorker(QThread):
             self.status_signal.emit(f"No playable cards (Mana: {me.mana})")
             self.arrow_signal.emit(None, None)
 
-
+    def _suggest_with_brain(self, me):
+        """Use AlphaZero model for suggestions."""
+        from ai.actions import ActionType
+        
+        # Convert game state to dict for the brain
+        game_state = self._game_to_state_dict(me)
+        
+        # Get suggestion from brain
+        action, confidence, description = self.brain.suggest_action(game_state)
+        
+        if action is None:
+            self.status_signal.emit(f"AI Error: {description}")
+            return
+        
+        # Display confidence
+        conf_pct = int(confidence * 100)
+        self.status_signal.emit(f"[AI {conf_pct}%] {description}")
+        
+        # Visualize the action
+        if action.action_type == ActionType.END_TURN:
+            # Clear overlay
+            self.arrow_signal.emit(None, None)
+            
+        elif action.action_type == ActionType.PLAY_CARD:
+            if action.card_index is not None and action.card_index < len(me.hand):
+                hand_size = len(me.hand)
+                card_pos = self.geometry.get_hand_card_pos(action.card_index, hand_size)
+                self.highlight_signal.emit(card_pos)
+                
+        elif action.action_type == ActionType.HERO_POWER:
+            hp_pos = self.geometry.get_hero_power_pos(is_opponent=False)
+            self.highlight_signal.emit(hp_pos)
+            
+        elif action.action_type == ActionType.ATTACK:
+            if action.attacker_index is not None and action.target_index is not None:
+                # Attacker position
+                if action.attacker_index < len(me.board):
+                    start_pos = self.geometry.get_player_minion_pos(action.attacker_index, len(me.board))
+                    # Target position (assume enemy)
+                    if action.target_index == 0:  # Face
+                        end_pos = self.geometry.get_hero_pos(is_opponent=True)
+                    else:
+                        # Enemy minion
+                        enemy = self.game.players[1] if me == self.game.players[0] else self.game.players[0]
+                        if action.target_index - 1 < len(enemy.board):
+                            end_pos = self.geometry.get_opponent_minion_pos(action.target_index - 1, len(enemy.board))
+                        else:
+                            end_pos = self.geometry.get_hero_pos(is_opponent=True)
+                    self.arrow_signal.emit(start_pos, end_pos)
+                    
+        elif action.action_type == ActionType.USE_LOCATION:
+            if action.card_index is not None and action.card_index < len(me.board):
+                loc_pos = self.geometry.get_player_minion_pos(action.card_index, len(me.board))
+                self.highlight_signal.emit(loc_pos)
     
+    def _game_to_state_dict(self, me) -> dict:
+        """Convert current game state to dictionary for the brain."""
+        hand = []
+        for c in me.hand:
+            card_dict = {
+                'name': c.data.name if hasattr(c, 'data') and c.data else c.card_id,
+                'cost': c.cost if hasattr(c, 'cost') else 0,
+                'card_id': c.card_id if hasattr(c, 'card_id') else '',
+            }
+            hand.append(card_dict)
+        
+        board = []
+        for c in me.board:
+            minion_dict = {
+                'name': c.data.name if hasattr(c, 'data') and c.data else c.card_id,
+                'attack': c.attack if hasattr(c, 'attack') else 0,
+                'health': c.health if hasattr(c, 'health') else 0,
+                'can_attack': c.can_attack() if hasattr(c, 'can_attack') else False,
+            }
+            board.append(minion_dict)
+        
+        hero_power = {}
+        if hasattr(me, 'hero_power') and me.hero_power:
+            hp = me.hero_power
+            hero_power = {
+                'cost': hp.cost if hasattr(hp, 'cost') else 2,
+                'used_this_turn': hp.used_this_turn if hasattr(hp, 'used_this_turn') else False,
+            }
+        
+        return {
+            'mana': me.mana if hasattr(me, 'mana') else 0,
+            'hand': hand,
+            'board': board,
+            'hero_power': hero_power,
+        }
+
     def _suggest_attacks(self, me):
         """Suggest creature attacks after card plays."""
         if not me.board:

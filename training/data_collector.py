@@ -42,8 +42,8 @@ class DataCollector:
             self.buffer.add_game(trajectory, winner)
             
             elapsed = time.time() - start_time
-            avg_time = elapsed / (g + 1)
-            print(f"Game {g+1}/{num_games} completed. Winner: Player {winner}. Buffer size: {len(self.buffer)}. Avg Time/Game: {avg_time:.2f}s")
+            winner_str = f"Player {winner}" if winner > 0 else "Draw/Timeout"
+            print(f"Game {g+1}/{num_games} completed. Winner: {winner_str}. Buffer size: {len(self.buffer)}. Avg Time/Game: {avg_time:.2f}s")
             
     def _play_single_game(self, mcts_sims: int, game_idx: int) -> Tuple[List, int]:
         """Plays one game returning (trajectory, winner_id)."""
