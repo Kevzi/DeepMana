@@ -34,7 +34,7 @@ class Trainer:
         self.batch_size = 128             # RTX 3070 Ti can handle this
         self.epochs_per_iter = 5
         self.num_iterations = 100         # More iterations for better learning
-        self.games_per_iter = 20          # More self-play games per iteration
+        self.games_per_iter = 40          # More self-play games per iteration (8 at a time)
         self.mcts_sims = 100              # More MCTS simulations = better decisions
         self.buffer_capacity = 100000     # Keep more history
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,7 +42,7 @@ class Trainer:
         # Components
         self.model = HearthstoneModel(self.input_dim, self.action_dim).to(self.device)
         self.buffer = ReplayBuffer(self.buffer_capacity)
-        self.collector = DataCollector(self.model, self.buffer)
+        self.collector = DataCollector(self.model, self.buffer, num_workers=8)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
         # TensorBoard
