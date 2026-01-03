@@ -141,7 +141,8 @@ class HearthstoneGame:
             if to_replace:
                 self._game.do_mulligan(player, to_replace)
         
-        self._game.phase = 4 # END_MULLIGAN/PLAY phase (Check GamePhase enum)
+        from simulator.enums import GamePhase
+        self._game.phase = GamePhase.MAIN_ACTION
         self._game.current_player.start_turn()
         
         self._step_count = 0
