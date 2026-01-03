@@ -229,25 +229,93 @@ class Game:
         return True
     
     def _apply_dark_gift(self, minion: Card) -> None:
-        """Apply a random Dark Gift bonus to a minion."""
+        """
+        Apply a random Dark Gift bonus to a minion.
+        The 10 Dark Gifts from Into the Emerald Dream:
+        1. Terreur en éveil (Waking Terror) - +2/+2
+        2. Repos serein (Peaceful Rest) - Deathrattle: Draw a card
+        3. Courtes griffes (Short Claws) - Costs (2) less, -2 Attack
+        4. Posture de défense (Defensive Stance) - +1/+3 and Taunt
+        5. Cauchemar vivant (Living Nightmare) - +1/+1 and Reborn
+        6. Somnambule (Sleepwalker) - Stealth for 1 turn
+        7. Réveil brutal (Rude Awakening) - Battlecries trigger twice
+        8. Beaux rêves (Sweet Dreams) - +2 Health and Lifesteal
+        9. Horreur persistante (Lingering Horror) - Deathrattle: summon 1/1
+        10. Serres de harpie (Harpy Talons) - +2 Attack and Rush
+        """
         import random
         
-        gifts = [
-            lambda m: setattr(m, '_attack', m._attack + 2),  # +2 Attack
-            lambda m: setattr(m, '_health', m._health + 2),  # +2 Health
-            lambda m: setattr(m, '_taunt', True),            # Taunt
-            lambda m: setattr(m, '_divine_shield', True),    # Divine Shield
-            lambda m: setattr(m, '_rush', True),             # Rush
-            lambda m: setattr(m, '_lifesteal', True),        # Lifesteal
-            lambda m: setattr(m, '_stealth', True),          # Stealth
-            lambda m: setattr(m, '_cost', max(0, m._cost - 1)),  # Cost -1
-        ]
+        # Build list of applicable gifts
+        applicable_gifts = []
         
-        # Apply 1-2 random gifts
-        num_gifts = random.randint(1, 2)
-        for _ in range(num_gifts):
-            gift = random.choice(gifts)
-            gift(minion)
+        # 1. Terreur en éveil - +2/+2
+        applicable_gifts.append(("Terreur en éveil", lambda m: (
+            setattr(m, '_attack', m._attack + 2),
+            setattr(m, '_health', m._health + 2),
+            setattr(m, '_max_health', m._max_health + 2)
+        )))
+        
+        # 2. Repos serein - Deathrattle: Draw
+        applicable_gifts.append(("Repos serein", lambda m: (
+            setattr(m, '_dark_gift_deathrattle', 'draw')
+        )))
+        
+        # 3. Courtes griffes - Cost -2, Attack -2 (only if attack > 2)
+        if minion._attack > 2:
+            applicable_gifts.append(("Courtes griffes", lambda m: (
+                setattr(m, '_cost', max(0, m._cost - 2)),
+                setattr(m, '_attack', m._attack - 2)
+            )))
+        
+        # 4. Posture de défense - +1/+3 and Taunt
+        applicable_gifts.append(("Posture de défense", lambda m: (
+            setattr(m, '_attack', m._attack + 1),
+            setattr(m, '_health', m._health + 3),
+            setattr(m, '_max_health', m._max_health + 3),
+            setattr(m, '_taunt', True)
+        )))
+        
+        # 5. Cauchemar vivant - +1/+1 and Reborn
+        applicable_gifts.append(("Cauchemar vivant", lambda m: (
+            setattr(m, '_attack', m._attack + 1),
+            setattr(m, '_health', m._health + 1),
+            setattr(m, '_max_health', m._max_health + 1),
+            setattr(m, '_reborn', True)
+        )))
+        
+        # 6. Somnambule - Stealth
+        applicable_gifts.append(("Somnambule", lambda m: (
+            setattr(m, '_stealth', True)
+        )))
+        
+        # 7. Réveil brutal - Battlecries trigger twice (only if has battlecry)
+        if minion.data.battlecry:
+            applicable_gifts.append(("Réveil brutal", lambda m: (
+                setattr(m, '_double_battlecry', True)
+            )))
+        
+        # 8. Beaux rêves - +2 Health and Lifesteal
+        applicable_gifts.append(("Beaux rêves", lambda m: (
+            setattr(m, '_health', m._health + 2),
+            setattr(m, '_max_health', m._max_health + 2),
+            setattr(m, '_lifesteal', True)
+        )))
+        
+        # 9. Horreur persistante - Deathrattle: summon 1/1
+        applicable_gifts.append(("Horreur persistante", lambda m: (
+            setattr(m, '_dark_gift_deathrattle', 'summon_1_1')
+        )))
+        
+        # 10. Serres de harpie - +2 Attack and Rush
+        applicable_gifts.append(("Serres de harpie", lambda m: (
+            setattr(m, '_attack', m._attack + 2),
+            setattr(m, '_rush', True)
+        )))
+        
+        # Pick one random gift
+        gift_name, gift_func = random.choice(applicable_gifts)
+        gift_func(minion)
+        minion._dark_gift_name = gift_name  # Store for display
 
     def register_trigger(self, event_name: str, source: Entity, callback: Callable) -> None:
         """Register a trigger callback."""
