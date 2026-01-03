@@ -84,26 +84,24 @@ class HearthstoneGame:
         """
         Reset the game with new decks.
         
-        If no decks provided, generates random 30-card decks for random classes.
+        If no decks provided, uses random META decks from HSGuru.
         """
         import random as rnd
         
-        # Pick random classes if not specified
-        if class1 is None:
-            class1 = rnd.choice(ALL_CLASSES)
-        if class2 is None:
-            class2 = rnd.choice(ALL_CLASSES)
-        
-        # Generate decks if not provided (30 cards each)
+        # Use META DECKS for training (competitive decks from HSGuru)
         if deck1 is None:
-            deck1_ids = DeckGenerator.get_random_deck(class1, size=30)
+            class1, deck1_ids = DeckGenerator.get_random_meta_deck()
         else:
             deck1_ids = deck1
+            if class1 is None:
+                class1 = "MAGE"
             
         if deck2 is None:
-            deck2_ids = DeckGenerator.get_random_deck(class2, size=30)
+            class2, deck2_ids = DeckGenerator.get_random_meta_deck()
         else:
             deck2_ids = deck2
+            if class2 is None:
+                class2 = "WARRIOR"
         
         # Get hero IDs for the classes
         hero1 = HERO_IDS.get(class1, "HERO_08")
