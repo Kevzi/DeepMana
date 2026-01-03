@@ -543,7 +543,7 @@ class Game:
         source: Optional[Card] = None
     ) -> int:
         """Deal damage to a target."""
-        if target.immune:
+        if target.immune or target.dormant > 0:
             return 0
         
         # Divine Shield absorbs damage
@@ -580,6 +580,9 @@ class Game:
     
     def heal(self, target: Card, amount: int) -> int:
         """Heal a target."""
+        if target.dormant > 0:
+            return 0
+            
         if target.card_type == CardType.HERO and isinstance(target, Hero):
             healed = min(amount, target.damage)
             target._damage -= healed

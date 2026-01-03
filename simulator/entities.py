@@ -102,6 +102,7 @@ class Card(Entity):
         self._armor: int = data.armor
         self._durability: int = data.durability
         self._damage: int = 0
+        self._dormant: int = 0
         
         # State flags
         self.exhausted: bool = False
@@ -136,6 +137,7 @@ class Card(Entity):
         new_card._armor = self._armor
         new_card._durability = self._durability
         new_card._damage = self._damage
+        new_card._dormant = self._dormant
         
         # Copy states
         new_card.zone = self.zone
@@ -161,6 +163,11 @@ class Card(Entity):
         
         # Copy tags
         new_card.tags = self.tags.copy()
+        
+        # Copy ANY extra dynamic attributes added by card effects (like 'dormant' in Nozdormu)
+        for key, value in self.__dict__.items():
+            if key not in new_card.__dict__ and not key.startswith('__'):
+                setattr(new_card, key, value)
         
         return new_card
     
@@ -236,6 +243,14 @@ class Card(Entity):
     @damage.setter
     def damage(self, value: int) -> None:
         self._damage = max(0, value)
+
+    @property
+    def dormant(self) -> int:
+        return self._dormant
+    
+    @dormant.setter
+    def dormant(self, value: int) -> None:
+        self._dormant = max(0, value)
     
     # Keyword properties (affected by silence)
     @property
@@ -312,7 +327,7 @@ class Card(Entity):
     
     def can_attack(self) -> bool:
         """Check if this entity can attack."""
-        if self.cant_attack or self.frozen:
+        if self.cant_attack or self.frozen or self.dormant > 0:
             return False
         if self.exhausted and not self.charge and not self.rush:
             return False

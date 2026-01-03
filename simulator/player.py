@@ -369,12 +369,12 @@ class Player(Entity):
         # Add all characters as potential targets
         if self.hero:
             targets.append(self.hero)
-        targets.extend(self.board)
+        targets.extend([m for m in self.board if m.dormant == 0])
         
         if self.opponent:
             if self.opponent.hero:
                 targets.append(self.opponent.hero)
-            targets.extend(self.opponent.board)
+            targets.extend([m for m in self.opponent.board if m.dormant == 0])
         
         return targets
     
@@ -386,7 +386,7 @@ class Player(Entity):
         targets: List[Card] = []
         
         # Check for taunt
-        taunts = [m for m in self.opponent.board if m.taunt and not m.stealth]
+        taunts = [m for m in self.opponent.board if m.taunt and not m.stealth and m.dormant == 0]
         
         if taunts:
             # Must attack taunt minions
@@ -395,7 +395,7 @@ class Player(Entity):
             # Can attack hero or any minion without stealth
             if self.opponent.hero and not self.opponent.hero.immune:
                 targets.append(self.opponent.hero)
-            targets.extend([m for m in self.opponent.board if not m.stealth])
+            targets.extend([m for m in self.opponent.board if not m.stealth and m.dormant == 0])
         
         # Rush minions can't attack hero on first turn
         if attacker.rush and attacker.exhausted:
