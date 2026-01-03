@@ -105,6 +105,16 @@ class HearthstoneGame:
             else:
                 deck2_ids = deck2
                 if class2 is None: class2 = "WARRIOR"
+
+        # FALLBACK: If meta decks are broken (missing cards in DB), use random basic decks
+        # This prevents training on 10-card decks
+        if len(deck1_ids) < 30:
+            # print(f"Warning: Deck 1 ({class1}) has only {len(deck1_ids)} cards. Using Random Basic Deck instead.")
+            deck1_ids = DeckGenerator.get_random_deck(class1)
+            
+        if len(deck2_ids) < 30:
+            # print(f"Warning: Deck 2 ({class2}) has only {len(deck2_ids)} cards. Using Random Basic Deck instead.")
+            deck2_ids = DeckGenerator.get_random_deck(class2)
         
         # Get hero IDs for the classes
         hero1 = HERO_IDS.get(class1, "HERO_08")

@@ -69,6 +69,7 @@
 | `evaluation.py` Script | ✅ |
 | Meta Decks Integration (HSGuru) | ✅ |
 | Auto-Validation of Cards (`verify_effects.py`) | ✅ |
+| Custom Meta Decks JSON Support | ✅ |
 | MCTS Optimization | ✅ |
 | Hyperparameter Tuning | 🚧 |
 

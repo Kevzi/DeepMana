@@ -36,10 +36,78 @@ class CardDatabase:
     
     @classmethod
     def load(cls) -> Dict[str, CardData]:
-        """Load all cards from hearthstone_data."""
+        """Load all cards, prioritizing local JSON update if available."""
         if cls._loaded:
             return cls._cards
         
+        # 1. Try loading from updated JSON file (priority)
+        import os
+        import json
+        json_path = os.path.join(os.path.dirname(__file__), "..", "data", "cards.json")
+        json_path = os.path.abspath(json_path)
+        
+        if os.path.exists(json_path):
+            print(f"Loading cards from local JSON: {json_path}")
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    
+                for card_dict in data:
+                    # JSON dicts need a slightly different conversion
+                    try:
+                         # Quick adapter to make dict look like an object for the existing _convert_card
+                         # Or better, refactor _convert_card to handle dicts. 
+                         # For minimal diff risk, let's make a dummy object.
+                         class DictObject:
+                             def __init__(self, d): self.__dict__ = d
+                         
+                         obj = DictObject(card_dict)
+                         # Remapping some keys because API JSON differs from library objects sometimes
+                         obj.card_set = card_dict.get('set', 'UNKNOWN')
+                         obj.card_class = card_dict.get('cardClass', 'NEUTRAL')
+                         obj.atk = card_dict.get('attack', 0)
+                         # obj.type is usually uppercase string "MINION" in JSON
+                         # but library expects ENUM. WE need to be careful.
+                         
+                         # Actually, parsing JSON directly is safer than wrapping.
+                         card_data = cls._convert_json_card(card_dict)
+                         if card_data:
+                            cls._cards[card_dict['id']] = card_data
+                            
+                    except Exception as e:
+                        pass
+                        
+                cls._loaded = True
+                print(f"Loaded {len(cls._cards)} cards from JSON.")
+                return cls._cards
+            except Exception as e:
+                print(f"Failed to load local JSON: {e}. Fallback to library.")
+                
+        # 1.5 Try loading MANUAL JSON (Patches)
+        manual_path = os.path.join(os.path.dirname(__file__), "..", "data", "manual_cards.json")
+        manual_path = os.path.abspath(manual_path)
+        
+        if os.path.exists(manual_path):
+            print(f"Loading MANUAL cards patches: {manual_path}")
+            try:
+                with open(manual_path, "r", encoding="utf-8") as f:
+                    manual_data = json.load(f)
+                    
+                for card_dict in manual_data:
+                    try:
+                        card_data = cls._convert_json_card(card_dict)
+                        if card_data:
+                            cls._cards[card_dict['id']] = card_data
+                            # Also patch by DBF ID strictly if needed? 
+                            # But DeckGenerator uses DBF map which is rebuilt from loaded cards.
+                            pass
+                    except Exception as e:
+                        pass
+                print(f"Loaded {len(manual_data)} manual patches.")
+            except Exception as e:
+                print(f"Failed loading manual patches: {e}")
+        
+        # 2. Fallback to library
         db, _ = cardxml.load()
         
         for card_id, card in db.items():
@@ -53,17 +121,101 @@ class CardDatabase:
         
         cls._loaded = True
         return cls._cards
+
+    @classmethod
+    def _convert_json_card(cls, data: Dict) -> Optional[CardData]:
+        """Convert a JSON dictionary to CardData."""
+        # Type mapping from string
+        type_str = data.get('type')
+        if not type_str: return None
+        
+        c_type = CardType.INVALID
+        if type_str == "MINION": c_type = CardType.MINION
+        elif type_str == "SPELL": c_type = CardType.SPELL
+        elif type_str == "WEAPON": c_type = CardType.WEAPON
+        elif type_str == "HERO": c_type = CardType.HERO
+        elif type_str == "HERO_POWER": c_type = CardType.HERO_POWER
+        elif type_str == "LOCATION": c_type = CardType.LOCATION
+        
+        if c_type == CardType.INVALID: return None
+        
+        # ID
+        card_id = data.get('id', '')
+        if not card_id: return None
+        
+        # Class mapping
+        class_str = data.get('cardClass', 'NEUTRAL')
+        try:
+            c_class = CardClass(class_str)
+        except:
+             c_class = CardClass.NEUTRAL
+             
+        # Rarity
+        rarity_str = data.get('rarity', 'FREE')
+        try:
+            c_rarity = Rarity(rarity_str)
+        except:
+            c_rarity = Rarity.FREE
+            
+        # Race
+        race_str = data.get('race')
+        c_race = Race.INVALID
+        if race_str:
+            try:
+                 c_race = Race(race_str)
+            except:
+                 pass
+                 
+        mechanics = data.get('mechanics', [])
+        
+        return CardData(
+            card_id=card_id,
+            dbf_id=data.get('dbfId', 0),
+            name=data.get('name', ''),
+            text=data.get('text', ''),
+            card_set=data.get('set', 'UNKNOWN'),
+            cost=data.get('cost', 0),
+            attack=data.get('attack', 0),
+            health=data.get('health', 0),
+            durability=data.get('durability', 0),
+            card_type=c_type,
+            card_class=c_class,
+            rarity=c_rarity,
+            race=c_race,
+            collectible=data.get('collectible', False),
+            taunt='TAUNT' in mechanics,
+            divine_shield='DIVINE_SHIELD' in mechanics,
+            charge='CHARGE' in mechanics,
+            windfury='WINDFURY' in mechanics,
+            stealth='STEALTH' in mechanics,
+            poisonous='POISONOUS' in mechanics or 'VENOMOUS' in mechanics,
+            lifesteal='LIFESTEAL' in mechanics,
+            rush='RUSH' in mechanics,
+            reborn='REBORN' in mechanics,
+            battlecry='BATTLECRY' in mechanics,
+            deathrattle='DEATHRATTLE' in mechanics,
+            discover='DISCOVER' in mechanics,
+            outcast='OUTCAST' in mechanics,
+            tags={GameTag.SPELLPOWER.value: data.get('spellDamage', 0)}
+        )
     
     @classmethod
     def _convert_card(cls, card) -> Optional[CardData]:
         """Convert a hearthstone_data card to CardData."""
         # Get card type
         card_type = cls._map_card_type(getattr(card, 'type', None))
+        
+        # DEBUG: Print attributes of first card to find DBF ID
+        if not hasattr(cls, '_debug_printed'):
+            print(f"DEBUG: Card attributes: {dir(card)}")
+            cls._debug_printed = True
+
         if card_type == CardType.INVALID:
             return None
         
         # Get basic properties
         card_id = getattr(card, 'id', '') or ''
+        dbf_id = getattr(card, 'dbf_id', 0) or getattr(card, 'dbfId', 0) or 0
         name = getattr(card, 'name', '') or ''
         text = getattr(card, 'description', '') or ''
         
@@ -97,6 +249,7 @@ class CardDatabase:
         
         return CardData(
             card_id=card_id,
+            dbf_id=dbf_id,
             name=name,
             text=text,
             card_set=card_set,

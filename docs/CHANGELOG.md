@@ -4,6 +4,24 @@ All notable changes to the HearthstoneOne project.
 
 ---
 
+## [2026-01-03] — Meta Decks JSON & Starcraft Support
+
+### ✨ Added
+- **`data/meta_decks.json`** — Externalized deck definitions for easier management.
+- **Starcraft Custom Set** — Implemented effects for Photon Cannon, Artanis, Mothership.
+- **Custom User Decks** — Added support for user-provided "New Priest" and "New Warlock" archetypes.
+- **Data Improver** — `CardDatabase` now prioritizes `data/cards.json` and applies patches from `data/manual_cards.json` to fix missing 2026 cards.
+
+### 🔧 Changed
+- **`simulator/deck_generator.py`** — Major refactor to load decks from JSON files dynamically.
+- **`gui/tabs/decks_tab.py`** — Updated to consume the new JSON-based deck generator.
+- **Model Reset** — Purged old checkpoints to allow fresh training on the fully corrected dataset.
+
+### 🧪 Fixed
+- **"Unknown Card" Bug** — Resolved issues with missing DBF IDs by utilizing `manual_cards.json` patches and verifying against HSGuru codes.
+
+---
+
 ## [2026-01-03] — Dashboard v1.0 & Fixes
 
 ### ✨ Added

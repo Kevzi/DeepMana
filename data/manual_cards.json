@@ -1,0 +1,114 @@
+[
+    {
+        "id": "MANUAL_79845",
+        "dbfId": 79845,
+        "name": "Mystery Hunter Card 1",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 2,
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "MANUAL_94605",
+        "dbfId": 94605,
+        "name": "Spirit of the Dead (Fixed)",
+        "type": "MINION",
+        "cardClass": "PRIEST",
+        "cost": 1,
+        "attack": 0,
+        "health": 3
+    },
+    {
+        "id": "MANUAL_108412",
+        "dbfId": 108412,
+        "name": "Mystery Hunter Card 2",
+        "type": "SPELL",
+        "cardClass": "HUNTER",
+        "cost": 1
+    },
+    {
+        "id": "MANUAL_109925",
+        "dbfId": 109925,
+        "name": "Mystery Hunter Card 3",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 3,
+        "attack": 3,
+        "health": 3
+    },
+    {
+        "id": "MANUAL_113770",
+        "dbfId": 113770,
+        "name": "Mystery Hunter Card 4",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 4,
+        "attack": 4,
+        "health": 4
+    },
+    {
+        "id": "MANUAL_113977",
+        "dbfId": 113977,
+        "name": "Mystery Hunter Card 5",
+        "type": "SPELL",
+        "cardClass": "HUNTER",
+        "cost": 2
+    },
+    {
+        "id": "MANUAL_114360",
+        "dbfId": 114360,
+        "name": "Mystery Hunter Card 6",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 5,
+        "attack": 5,
+        "health": 5
+    },
+    {
+        "id": "MANUAL_114909",
+        "dbfId": 114909,
+        "name": "Mystery Hunter Card 7",
+        "type": "SPELL",
+        "cardClass": "HUNTER",
+        "cost": 2
+    },
+    {
+        "id": "MANUAL_115773",
+        "dbfId": 115773,
+        "name": "Mystery Hunter Card 8",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 3,
+        "attack": 3,
+        "health": 4
+    },
+    {
+        "id": "MANUAL_116596",
+        "dbfId": 116596,
+        "name": "Mystery Hunter Card 9",
+        "type": "SPELL",
+        "cardClass": "HUNTER",
+        "cost": 1
+    },
+    {
+        "id": "MANUAL_116808",
+        "dbfId": 116808,
+        "name": "Mystery Hunter Card 10",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 2,
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "MANUAL_121346",
+        "dbfId": 121346,
+        "name": "Mystery Hunter Card 11",
+        "type": "MINION",
+        "cardClass": "HUNTER",
+        "cost": 4,
+        "attack": 4,
+        "health": 5
+    }
+]

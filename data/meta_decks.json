@@ -1,0 +1,70 @@
+{
+    "SHAMAN": [
+        {
+            "name": "Hagatha Shaman",
+            "code": "AAECAaoICoCgBMekBqilBtSlBoG4Bq3hBoKYB9umB9+mB+WmBwqvnwSopwbDvgaEvwbOwAbQwAbZwAbR0Abmlge8sQcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        }
+    ],
+    "DEMONHUNTER": [
+        {
+            "name": "Cliff Dive DH",
+            "code": "AAECAea5AwjJsAayuAb6wAal/AaCmAeKqgeSqgeTqgcLgIUEw7AGqrgG18AG9sAGwf4G3v8G/oMHtpcHh5wH0a8HAAA="
+        }
+    ],
+    "DEATHKNIGHT": [
+        {
+            "name": "BBU Control DK",
+            "code": "AAECAfHhBA7HpAa9sQaouAan0wbm5QbC6Aaq6gap9QaSgwfDgweDigeCmAeHnAeZsQcIh/YE/7oGtfoG/fwGgf0GloIHl4IHupUHAAED9bMGx6QG97MGx6QG7t4Gx6QGAAA="
+        }
+    ],
+    "WARRIOR": [
+        {
+            "name": "Dragon Warrior",
+            "code": "AAECAQcIx6QGzOEGoYEHrIgHwY8HgpgHhJ0H8a8HC+qoBuPmBqr8Bqv8BveDB+iHB9KXB56ZB7etB5iwB4+xBwABA/WzBsekBvezBsekBu7eBsekBgAA"
+        }
+    ],
+    "ROGUE": [
+        {
+            "name": "Elise Rogue",
+            "code": "AAECAaIHCsekBqfTBrXqBuHrBt/+BpKDB4KYB9GdB92vB+WvBwr2nwT3nwS2tQaM1gbq5Qa1+gaQgweMrQfHrgfZrwcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        },
+        {
+            "name": "Rogue Variant",
+            "code": "AAECAaIHCsekBq+nBqfTBrXqBuHrBt/+BpKDB4KYB9GdB92vBwr2nwT3nwS2tQaM1gbq5Qa1+gaQgweMrQfHrgfZrwcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        }
+    ],
+    "DRUID": [
+        {
+            "name": "New Druid Archetype",
+            "code": "AAECAZICDMekBquxBtW6BofiBuHrBqX8Bq+HB9uXB4KYB/ioB/moB/qoBwmunwTZsQakuwaRvwbzygb35QaHnAeqrwesrwcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        }
+    ],
+    "MAGE": [
+        {
+            "name": "Elemental Mage",
+            "code": "AAECAf0EAA/9ngSyngbTngbipgaozgbb4wbt5gaZ6gbf6gbHhweblgeflgfOmweHnAeLsQcAAA=="
+        }
+    ],
+    "PALADIN": [
+        {
+            "name": "Aggro Paladin",
+            "code": "AAECAZ8FAA/JoASe1ASU9QWV9QW1ngbUngbeugaUvwaf4Qbt5gbI/wa6lgfXlwe8mgeKsQcAAA=="
+        }
+    ],
+    "PRIEST": [
+        {
+            "name": "Protoss Priest",
+            "code": "AAECAa0GCMekBvvuBv/0Bpf8BryDB4KYB9yxB/GxBwuLowThpQbo+Qa8+gb6/Qbr/waPgAf5hAegkQeIlQcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        },
+        {
+            "name": "New Priest (User)",
+            "code": "AAECAa0GBsekBq/BBtfSBpP0BoKYB5mxBwytigTOwAaMwQaL1gaL9AaQ9AaY9Aaz9AbF+AbK+Aa1lgedrQcAAQP1swbHpAb3swbHpAbu3gbHpAYAAA=="
+        }
+    ],
+    "WARLOCK": [
+        {
+            "name": "New Warlock (User)",
+            "code": "AAECAf0GBse4BpPLBu+PB/WYB+ybB9edBwyPnwSxnwSRoATnoATEngbTngaJtQaUygbrhAepiAeEmQfgnQcAAA=="
+        }
+    ]
+}

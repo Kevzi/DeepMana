@@ -1,174 +1,176 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-                             QLabel, QPushButton, QScrollArea, QListWidget, QListWidgetItem)
-from PyQt6.QtCore import Qt
-import qtawesome as qta
-from simulator.deck_generator import META_DECK_CODES
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+    QListWidget, QListWidgetItem, QTextEdit, QMessageBox, QDialog,
+    QScrollArea, QFrame
+)
+from PyQt6.QtCore import Qt, QTimer
+import sys
+import os
+
+from simulator.deck_generator import DeckGenerator
+from simulator.card_loader import CardDatabase
 
 class DecksTab(QWidget):
     def __init__(self):
         super().__init__()
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.init_ui()
         
-        # Header
-        header = QHBoxLayout()
-        title = QLabel("META DECKS LIBRARY")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
-        header.addWidget(title)
-        header.addStretch()
+    def init_ui(self):
+        layout = QHBoxLayout(self)
         
-        btn_refresh = QPushButton(" Refresh")
-        btn_refresh.setIcon(qta.icon("fa5s.sync", color="white"))
-        btn_refresh.setStyleSheet("background-color: #334155; padding: 5px 15px; border-radius: 5px;")
-        header.addWidget(btn_refresh)
+        # Left: List of Decks
+        left_panel = QFrame()
+        left_layout = QVBoxLayout(left_panel)
         
-        self.layout.addLayout(header)
+        title = QLabel("Meta Decks (Standard)")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #cbd5e1;")
+        left_layout.addWidget(title)
         
-        # Description
-        desc = QLabel("Here are the decks used by the AI for training. Lists sourced from HSGuru (January 2026).")
-        desc.setStyleSheet("color: #94a3b8; margin-bottom: 10px;")
-        self.layout.addWidget(desc)
+        self.deck_list = QListWidget()
+        self.deck_list.setStyleSheet("""
+            QListWidget {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                font-size: 14px;
+            }
+            QListWidget::item {
+                padding: 10px;
+            }
+            QListWidget::item:selected {
+                background-color: #3b82f6;
+            }
+        """)
+        left_layout.addWidget(self.deck_list)
         
-        # Scroll Area for Decks
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("background-color: transparent; border: none;")
+        btn_layout = QHBoxLayout()
+        refresh_btn = QPushButton("Refresh List")
+        refresh_btn.clicked.connect(self.load_decks)
+        view_btn = QPushButton("View Deck List")
+        view_btn.clicked.connect(self.view_selected_deck)
         
-        container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
-        self.grid_layout = QVBoxLayout(container)
-        self.grid_layout.setSpacing(10)
+        btn_layout.addWidget(refresh_btn)
+        btn_layout.addWidget(view_btn)
+        left_layout.addLayout(btn_layout)
         
-        scroll.setWidget(container)
-        self.layout.addWidget(scroll)
+        layout.addWidget(left_panel, 1) # Stretch 1
         
-        # Initial load
-        self.refresh_decks()
-        print(f"DEBUG: DecksTab initialized with {len(META_DECK_CODES)} decks.")
+        # Load decks on start
+        self.meta_decks = {} # Store loaded decks locally: name -> code
+        self.load_decks()
+        
+    def load_decks(self):
+        self.deck_list.clear()
+        self.meta_decks = {}
+        
+        # Load from JSON via Generator
+        try:
+            decks_map = DeckGenerator._load_meta_decks()
+        except Exception:
+            self.deck_list.addItem("Error loading deck generator.")
+            return
+        
+        if not decks_map:
+            self.deck_list.addItem("No decks found or error loading JSON.")
+            return
 
-    def refresh_decks(self):
-        # Clear existing
-        while self.grid_layout.count():
-            child = self.grid_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-                
-        # Group by class
-        by_class = {}
-        for code, (cls, name) in META_DECK_CODES.items():
-            if cls not in by_class:
-                by_class[cls] = []
-            by_class[cls].append((name, code))
+        # Group by Class for nicer display
+        grouped = {}
+        for code, (cls_name, deck_name) in decks_map.items():
+            if cls_name not in grouped: grouped[cls_name] = []
+            grouped[cls_name].append((deck_name, code))
             
-        for cls in sorted(by_class.keys()):
-            # Class Header
-            cls_label = QLabel(cls)
-            cls_label.setStyleSheet(f"font-weight: bold; color: {self.get_class_color(cls)}; font-size: 14px; margin-top: 10px;")
-            self.grid_layout.addWidget(cls_label)
+        for cls_name in sorted(grouped.keys()):
+            for deck_name, code in grouped[cls_name]:
+                display_name = f"[{cls_name}] {deck_name}"
+                item = QListWidgetItem(display_name)
+                # Map display name to code
+                self.meta_decks[display_name] = code
+                self.deck_list.addItem(item)
+                
+    def view_selected_deck(self):
+        current_item = self.deck_list.currentItem()
+        if not current_item:
+            return
             
-            for name, code in by_class[cls]:
-                card = QFrame()
-                card.setProperty("class", "card")
-                card.setFixedHeight(60)
-                card_layout = QHBoxLayout(card)
-                card_layout.setContentsMargins(15, 0, 15, 0)
-                
-                # Icon
-                icon_label = QLabel()
-                icon_label.setPixmap(qta.icon("fa5s.bookmark", color=self.get_class_color(cls)).pixmap(24, 24))
-                card_layout.addWidget(icon_label)
-                
-                # Name
-                name_label = QLabel(name)
-                name_label.setStyleSheet("font-weight: 600; font-size: 13px;")
-                card_layout.addWidget(name_label)
-                
-                card_layout.addStretch()
-                
-                # Actions
-                btn_view = QPushButton("View List")
-                btn_view.setStyleSheet("background-color: #334155; border-radius: 4px; padding: 4px 10px; font-size: 11px;")
-                # Capture code in lambda properly
-                btn_view.clicked.connect(lambda checked, c=code, n=name: self.show_deck_list(n, c))
-                card_layout.addWidget(btn_view)
-                
-                self.grid_layout.addWidget(card)
+        display_name = current_item.text()
+        code = self.meta_decks.get(display_name)
         
-        self.grid_layout.addStretch()
-
+        if code:
+            self.show_deck_list(display_name, code)
+            
     def show_deck_list(self, name, code):
-        from PyQt6.QtWidgets import QDialog, QTextEdit
-        from simulator.deck_generator import DeckGenerator
-        from simulator.card_loader import CardDatabase
-        
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"List: {name}")
+        dialog.setWindowTitle(f"Deck List: {name}")
         dialog.resize(400, 600)
+        dialog.setStyleSheet("background-color: #0f172a; color: white;")
+        
         layout = QVBoxLayout(dialog)
         
-        # Decode deck
+        title = QLabel(name)
+        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(title)
+        
+        text_area = QTextEdit()
+        text_area.setReadOnly(True)
+        text_area.setStyleSheet("background-color: #1e293b; color: #94a3b8; border: none; font-size: 14px;")
+        
+        card_ids = None
+        error_msg = "Unknown error"
         try:
             card_ids = DeckGenerator.decode_deck_string(code)
         except Exception as e:
             card_ids = None
+            error_msg = str(e)
             print(f"Error decoding deck: {e}")
             
-        text_area = QTextEdit()
-        text_area.setReadOnly(True)
-        
         if card_ids:
-            # Load DB names
-            db = CardDatabase.get_instance()
-            if not db._loaded:
-                db.load()
-                
-            # Format text
-            content = f"### {name}\n\n"
-            
             # Count cards
-            from collections import Counter
-            counts = Counter(card_ids)
+            counts = {}
+            for cid in card_ids:
+                counts[cid] = counts.get(cid, 0) + 1
+                
+            # Get card details
+            db = CardDatabase.get_instance()
+            if not db._loaded: db.load()
+            
+            cards_info = []
+            unknown_count = 0
+            
+            for cid, count in counts.items():
+                if cid.startswith("DBF:"):
+                     unknown_count += 1
+                     cards_info.append((0, f"Unknown Card ({cid})", count))
+                     continue
+                     
+                card = db.get_card(cid)
+                if card:
+                    cards_info.append((card.cost, card.name, count))
+                else:
+                    cards_info.append((0, f"Unknown ID: {cid}", count))
             
             # Sort by cost
-            cards_info = []
-            for cid, count in counts.items():
-                card_def = db.get_card(cid)
-                if card_def:
-                    cards_info.append((card_def.cost, card_def.name, count))
-                else:
-                    cards_info.append((0, cid, count))
-                    
-            cards_info.sort(key=lambda x: x[0]) # Sort by cost
+            cards_info.sort(key=lambda x: x[0])
             
+            # Format text
+            content = f"**Total Cards:** {len(card_ids)}\n\n"
             for cost, cname, count in cards_info:
-                prefix = f"[{cost}]"
-                count_str = " x2" if count > 1 else "   "
-                content += f"{prefix} {cname} {count_str}\n"
-
+                content += f"[{cost}] {cname}"
+                if count > 1:
+                    content += f"  x{count}"
+                content += "\n\n" # Double newline for markdown spacing
+                
             text_area.setMarkdown(content)
+        elif card_ids is not None:
+             text_area.setText("Deck decoded but no cards found (Empty List).")
         else:
-             text_area.setText("Error: Could not decode deck string. Ensure 'hearthstone-deckstrings' is installed and card database is loaded.")
-
+             text_area.setText(f"Error decoding deck.\nDetails: {error_msg}")
+        
         layout.addWidget(text_area)
         
-        btn_close = QPushButton("Close")
-        btn_close.clicked.connect(dialog.accept)
-        layout.addWidget(btn_close)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        close_btn.setStyleSheet("background-color: #3b82f6; padding: 8px; border-radius: 4px;")
+        layout.addWidget(close_btn)
         
         dialog.exec()
-
-    def get_class_color(self, cls):
-        colors = {
-            "MAGE": "#3b82f6",
-            "WARRIOR": "#ef4444",
-            "ROGUE": "#f59e0b",
-            "DRUID": "#10b981",
-            "PALADIN": "#fbbf24",
-            "PRIEST": "#f1f5f9",
-            "HUNTER": "#22c55e",
-            "WARLOCK": "#a855f7",
-            "SHAMAN": "#2563eb",
-            "DEMONHUNTER": "#8b5cf6",
-            "DEATHKNIGHT": "#14b8a6"
-        }
-        return colors.get(cls.upper(), "#94a3b8")

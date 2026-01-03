@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 class CardData:
     """Static card data loaded from CardDefs."""
     card_id: str
+    dbf_id: int = 0
     name: str = ""
     text: str = ""
     card_set: str = "UNKNOWN"
