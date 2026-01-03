@@ -29,23 +29,27 @@ class DataCollector:
         self.buffer = buffer
         self.encoder = FeatureEncoder()
         
-    def collect_games(self, num_games: int, mcts_sims: int = 25):
+    def collect_games(self, num_games: int, mcts_sims: int = 25, verbose: bool = False):
         """
         Run self-play games and populate buffer.
+        
+        Args:
+            verbose: If True, print detailed action logs for each move.
         """
         print(f"Starting collection of {num_games} games with {mcts_sims} MCTS simulations per move...")
         
         start_time = time.time()
         
         for g in range(num_games):
-            trajectory, winner = self._play_single_game(mcts_sims, game_idx=g)
+            trajectory, winner = self._play_single_game(mcts_sims, game_idx=g, verbose=verbose)
             self.buffer.add_game(trajectory, winner)
             
             elapsed = time.time() - start_time
+            avg_time = elapsed / (g + 1)
             winner_str = f"Player {winner}" if winner > 0 else "Draw/Timeout"
             print(f"Game {g+1}/{num_games} completed. Winner: {winner_str}. Buffer size: {len(self.buffer)}. Avg Time/Game: {avg_time:.2f}s")
             
-    def _play_single_game(self, mcts_sims: int, game_idx: int) -> Tuple[List, int]:
+    def _play_single_game(self, mcts_sims: int, game_idx: int, verbose: bool = False) -> Tuple[List, int]:
         """Plays one game returning (trajectory, winner_id)."""
         env = HearthstoneGame()
         state = env.reset(randomize_first=True) # Randomizes who goes first
@@ -55,6 +59,9 @@ class DataCollector:
         # Game Loop
         step_count = 0
         max_steps = 150 # Prevent infinite loops
+        
+        if verbose:
+            print(f"\n--- Game {game_idx + 1} Start ---")
         
         while not env.is_game_over and step_count < max_steps:
             # Prepare MCTS
@@ -85,6 +92,15 @@ class DataCollector:
             # Evaluation: Argmax
             # For data collection: Sample (temperature 1.0) usually
             action_idx = np.random.choice(len(mcts_probs), p=mcts_probs)
+            
+            # Log action if verbose
+            if verbose:
+                action_obj = Action.from_index(action_idx)
+                player = env.current_player
+                mana = player.mana if hasattr(player, 'mana') else 0
+                hand_size = len(player.hand) if hasattr(player, 'hand') else 0
+                board_size = len(player.board) if hasattr(player, 'board') else 0
+                print(f"  T{step_count+1} P{p_id} [M:{mana} H:{hand_size} B:{board_size}] -> {action_obj}")
             
             # Execute action
             self._apply_action_to_env(env, action_idx)
