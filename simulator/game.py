@@ -228,6 +228,35 @@ class Game:
         self.check_for_game_over()
         return True
     
+    def choose_one(self, parent_card: Card, callback: Callable) -> bool:
+        """Start a Choose One choice (Druid)."""
+        player = parent_card.controller
+        if not player or not parent_card.data.choose_one:
+            return False
+            
+        option_ids = parent_card.data.choose_options
+        if not option_ids:
+            return False
+            
+        # === CHOOSE BOTH: Fandral / Ossirian Hidden effect ===
+        if getattr(player, 'choose_both', False) or getattr(parent_card, '_choose_both', False):
+            # Special case: execute all handlers instead of showing choice
+            for idx, opt_id in enumerate(option_ids):
+                handler = self._get_effect_handler(parent_card.card_id, f"choose_one_{idx}")
+                if handler:
+                    handler(self, player, parent_card)
+            return True
+            
+        from .factory import create_card
+        options = [create_card(cid, player) for cid in option_ids]
+        
+        self.pending_choices = {
+            "source": parent_card,
+            "options": options,
+            "callback": callback
+        }
+        return True
+
     def discover_from_sideboard(self, parent_card: Card, callback: Callable) -> bool:
         """Start a discover from a card's sideboard (e.g. E.T.C. Band)."""
         player = parent_card.controller
@@ -703,9 +732,19 @@ class Game:
         if not player.can_play_card(card):
             return False
         
+        # Capture states while card is in hand
+        hand_idx = player.hand.index(card) if card in player.hand else -1
+        is_outcast = (hand_idx == 0 or hand_idx == len(player.hand) - 1)
+        is_quickdraw = getattr(card, 'turn_added_to_hand', -1) == self.turn
+        is_echo = card.data.echo
+        
         # Spend mana
         if not player.spend_mana(card.cost):
             return False
+            
+        # === FINALE: Check if mana is 0 after spending ===
+        is_finale = (player.mana == 0)
+        card._finale_active = is_finale
         
         # Remove from hand
         player.remove_from_hand(card)

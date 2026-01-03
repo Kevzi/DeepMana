@@ -355,34 +355,45 @@ class Player(Entity):
         self.mana = max(0, self.mana - self.overload)
         self.overload = self.overload_next_turn
         self.overload_next_turn = 0
-        
-        # Reset temp mana
         self.temp_mana = 0
         
         # Reset hero power
         if self.hero_power:
             self.hero_power.reset_for_turn()
         
-        # Unfreeze and refresh minions
+        # Draw a card
+        self.draw(1)
+            
+        # Unfreeze, refresh minions and handle Dormant
         for minion in self.board:
             minion.exhausted = False
             minion.attacks_this_turn = 0
             if minion.frozen:
                 minion.frozen = False
-        
-        # Reduce location cooldowns
-        for minion in self.board:
-            if minion.card_type == CardType.LOCATION:
-                minion.reduce_cooldown()
+            
+            # === DORMANT: Wake up management ===
+            if minion.dormant > 0:
+                minion._dormant -= 1
+                if minion.dormant == 0:
+                    if self._game:
+                        self._game.fire_event("on_awake", minion)
+                        handler = self._game._get_effect_handler(minion.card_id, "on_awake")
+                        if handler:
+                            handler(self._game, self, minion)
         
         # Reset hero attacks
         if self.hero:
             self.hero.exhausted = False
             self.hero.attacks_this_turn = 0
         
-        # Reset counters
+        # Reset turn trackers
         self.cards_played_this_turn = 0
         self.minions_played_this_turn = 0
+        self.spells_played_this_turn = 0
+        self.hero_power_uses_this_turn = 0
+        self.combo_cards_played = 0
+        self.elementals_played_last_turn = self.elementals_played_this_turn
+        self.elementals_played_this_turn = 0
         self.spells_played_this_turn = 0
         self.hero_power_uses_this_turn = 0
         self.combo_cards_played = 0
