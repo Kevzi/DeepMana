@@ -35,19 +35,25 @@ class DataCollector:
         
         Args:
             verbose: If True, print detailed action logs for each move.
+        Returns:
+            dict: Counts of winners (0, 1, 2)
         """
         print(f"Starting collection of {num_games} games with {mcts_sims} MCTS simulations per move...")
         
         start_time = time.time()
+        winners = {0: 0, 1: 0, 2: 0}
         
         for g in range(num_games):
             trajectory, winner = self._play_single_game(mcts_sims, game_idx=g, verbose=verbose)
             self.buffer.add_game(trajectory, winner)
+            winners[winner] = winners.get(winner, 0) + 1
             
             elapsed = time.time() - start_time
             avg_time = elapsed / (g + 1)
             winner_str = f"Player {winner}" if winner > 0 else "Draw/Timeout"
             print(f"Game {g+1}/{num_games} completed. Winner: {winner_str}. Buffer size: {len(self.buffer)}. Avg Time/Game: {avg_time:.2f}s")
+            
+        return winners
             
     def _play_single_game(self, mcts_sims: int, game_idx: int, verbose: bool = False) -> Tuple[List, int]:
         """Plays one game returning (trajectory, winner_id)."""

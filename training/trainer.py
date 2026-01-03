@@ -9,10 +9,12 @@ Implements the AlphaZero training loop:
 
 import sys
 import os
+import time
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
 
 # Path hacks
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -43,6 +45,10 @@ class Trainer:
         self.collector = DataCollector(self.model, self.buffer)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
+        # TensorBoard
+        self.writer = SummaryWriter(log_dir="runs/hearthstone_training")
+        print(f"TensorBoard: tensorboard --logdir=runs")
+        
     def train(self):
         """Main training loop."""
         print(f"Starting training on {self.device}...")
@@ -52,14 +58,14 @@ class Trainer:
             
             # 1. Self-Play
             self.model.eval() # Collect in eval mode
-            # Note: DataCollector uses model on CPU usually for MCTS simplicity unless moved.
-            # My current MCTS code calls model(tensor), so model needs to be wherever tensor is.
-            # DataCollector uses MCTS.
-            # MCTS `_expand` calls `self.model(tensor)`.
-            # We should keep collecting on CPU for ease or handle device carefully.
-            # For simplicity, move model to CPU for collection, GPU for training.
             self.model.to("cpu")
-            self.collector.collect_games(self.games_per_iter, self.mcts_sims)
+            winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims)
+            
+            # Log winner stats to TensorBoard
+            self.writer.add_scalar("Games/Winners_Draw", winners.get(0, 0), iteration)
+            self.writer.add_scalar("Games/Winners_P1", winners.get(1, 0), iteration)
+            self.writer.add_scalar("Games/Winners_P2", winners.get(2, 0), iteration)
+            self.writer.add_scalar("Buffer/Size", len(self.buffer), iteration)
             
             # 2. Training
             if len(self.buffer) < self.batch_size:
@@ -68,27 +74,26 @@ class Trainer:
                 
             self.model.to(self.device)
             self.model.train()
-            self._train_epochs()
+            avg_loss = self._train_epochs(iteration)
+            
+            # Log loss to TensorBoard
+            self.writer.add_scalar("Loss/Total", avg_loss, iteration)
             
             # 3. Checkpoint
             self.save_checkpoint(f"checkpoint_iter_{iteration+1}.pt")
+            self.writer.flush()
             
-    def _train_epochs(self):
+    def _train_epochs(self, iteration: int):
         """Train on buffer data for several epochs."""
-        # Sample directly from buffer to create a dataset? 
-        # Or just sample batches manually?
-        # ReplayBuffer.sample returns a batch.
-        
         total_loss = 0
+        total_policy_loss = 0
+        total_value_loss = 0
         num_batches = 0
-        
-        # Train for fixed number of updates or cover buffer?
-        # Usually train on sample of buffer.
         
         # Let's do 100 updates per iteration
         num_updates = 100
         
-        for _ in range(num_updates):
+        for i in range(num_updates):
             states, target_pis, target_vs = self.buffer.sample(self.batch_size)
             
             states = states.to(self.device)
@@ -99,13 +104,6 @@ class Trainer:
             pred_pis, pred_vs = self.model(states)
             
             # Loss
-            # Policy Loss: Cross Entropy between target_pi (probs) and pred_pi (logits or probs?)
-            # Model output depends on Implementation.
-            # Step 1564 ai/model.py:
-            # return F.softmax(policy, dim=-1), torch.tanh(value)
-            # So output is PROBS.
-            # We calculate loss: - sum(target * log(pred))
-            
             # Clamp for stability
             pred_pis = torch.clamp(pred_pis, 1e-8, 1.0)
             policy_loss = -torch.sum(target_pis * torch.log(pred_pis)) / target_pis.size(0)
@@ -121,9 +119,18 @@ class Trainer:
             self.optimizer.step()
             
             total_loss += loss.item()
+            total_policy_loss += policy_loss.item()
+            total_value_loss += value_loss.item()
             num_batches += 1
             
-        print(f"Training Loss: {total_loss / num_batches:.4f}")
+        avg_loss = total_loss / num_batches
+        print(f"Training Loss: {avg_loss:.4f}")
+        
+        # Log detailed losses for the last batch or average
+        self.writer.add_scalar("Loss/Policy", total_policy_loss / num_batches, iteration)
+        self.writer.add_scalar("Loss/Value", total_value_loss / num_batches, iteration)
+        
+        return avg_loss
         
     def save_checkpoint(self, filename: str):
         """Save model."""
