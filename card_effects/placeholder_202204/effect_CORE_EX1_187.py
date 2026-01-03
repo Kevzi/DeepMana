@@ -1,4 +1,5 @@
 """Effect for CORE_EX1_187 in PLACEHOLDER_202204"""
+from simulator.enums import CardType
 
 def setup(game, source):
     def on_spell(game, trig_src, card, target):

@@ -1,4 +1,5 @@
 """Effect for SCH_245 in SCHOLOMANCE"""
+from simulator.enums import CardType
 
 def battlecry(game, source, target):
     player = source.controller

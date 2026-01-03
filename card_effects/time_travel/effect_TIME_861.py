@@ -1,4 +1,5 @@
 """Effect for TIME_861 in TIME_TRAVEL"""
+from simulator.enums import CardType
 
 
 def battlecry(game, source, target):

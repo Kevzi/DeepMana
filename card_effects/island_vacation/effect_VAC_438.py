@@ -1,4 +1,5 @@
 """Effect for VAC_438 in ISLAND_VACATION"""
+from simulator.enums import CardType
 
 
 def battlecry(game, source, target):

@@ -1,4 +1,5 @@
 """Effect for CORE_WC_042 in CORE"""
+from simulator.enums import Race
 from simulator.enums import CardType, Race
 
 def setup(game, source):

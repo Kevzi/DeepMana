@@ -1,4 +1,5 @@
 """Effect for CORE_LOE_003 in PLACEHOLDER_202204"""
+from simulator.enums import CardType
 
 def battlecry(game, source, target):
     player = source.controller

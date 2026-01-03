@@ -1,4 +1,5 @@
 """Effect for ETC_026 in WILD_WEST"""
+from simulator.enums import CardType
 
 
 def battlecry(game, source, target):

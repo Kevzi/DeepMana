@@ -1,4 +1,5 @@
 """Effect for ETC_540 in BATTLE_OF_THE_BANDS"""
+from simulator.enums import CardType
 
 
 def setup(game, source):

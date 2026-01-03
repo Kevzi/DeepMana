@@ -1,4 +1,5 @@
 """Effect for EX1_187 in LEGACY"""
+from simulator.enums import CardType
 
 def setup(game, source):
     def on_spell(game, trig_src, card, target):

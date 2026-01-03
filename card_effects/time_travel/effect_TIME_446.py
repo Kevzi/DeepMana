@@ -1,4 +1,5 @@
 """Effect for TIME_446 in TIME_TRAVEL"""
+from simulator.enums import CardType, Race
 
 
 def on_play(game, source, target):

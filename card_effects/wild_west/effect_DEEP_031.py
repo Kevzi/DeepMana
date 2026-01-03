@@ -1,4 +1,5 @@
 """Effect for DEEP_031 in WILD_WEST"""
+from simulator.enums import CardType
 
 
 def on_play(game, source, target):

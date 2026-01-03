@@ -1,4 +1,5 @@
 """Effect for CORE_UNG_941 in CORE"""
+from simulator.enums import CardType
 
 def on_play(game, source, target):
     player = source.controller

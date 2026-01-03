@@ -1,4 +1,5 @@
 """Effect for VAC_408 in ISLAND_VACATION"""
+from simulator.enums import CardType
 
 
 def on_play(game, source, target):

@@ -1,4 +1,5 @@
 """Effect for CORE_DAL_609 in CORE"""
+from simulator.enums import CardType
 
 def battlecry(game, source, target):
     player = source.controller

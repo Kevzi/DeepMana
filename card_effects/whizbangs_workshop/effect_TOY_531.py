@@ -1,4 +1,5 @@
 """Effect for TOY_531 in WHIZBANGS_WORKSHOP"""
+from simulator.enums import CardType
 
 def setup(game, source):
     def on_play(game, trig_src, card, target):

@@ -1,4 +1,5 @@
 """Effect for DAL_609 in DALARAN"""
+from simulator.enums import CardType
 
 def battlecry(game, source, target):
     player = source.controller

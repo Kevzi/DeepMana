@@ -1,4 +1,5 @@
 """Effect for YOG_525 in TITANS"""
+from simulator.enums import CardType
 
 
 def battlecry(game, source, target):
