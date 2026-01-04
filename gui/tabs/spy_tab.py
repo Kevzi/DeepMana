@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-                             QLabel, QPushButton, QComboBox, QCheckBox)
+                             QLabel, QPushButton, QComboBox, QCheckBox, QApplication)
 from PyQt6.QtCore import Qt
 import qtawesome as qta
 from runtime.live_assistant import AssistantWorker
@@ -36,6 +36,63 @@ class SpyTab(QWidget):
         self.btn_toggle.clicked.connect(self.toggle_assistant)
         master_layout.addWidget(self.btn_toggle)
         
+        self.layout.addWidget(master_card)
+        self.layout.addSpacing(20)
+        
+        # 2. Options
+        options_layout = QHBoxLayout()
+        options_layout.setSpacing(20)
+        
+        # Display Options
+        opt_card = QFrame()
+        opt_card.setObjectName("dash_card")
+        opt_layout = QVBoxLayout(opt_card)
+        opt_layout.setContentsMargins(20, 20, 20, 20)
+        opt_layout.setSpacing(15)
+        
+        opt_title = QLabel("DISPLAY SETTINGS")
+        opt_title.setStyleSheet("color: #8a8a8a; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;")
+        opt_layout.addWidget(opt_title)
+        
+        self.chk_winrate = QCheckBox("Show Winrate %")
+        self.chk_winrate.setChecked(True)
+        self.chk_arrows = QCheckBox("Targeting Arrows")
+        self.chk_arrows.setChecked(True)
+        self.chk_hand = QCheckBox("Hand Analysis")
+        self.chk_hand.setChecked(True)
+        
+        opt_layout.addWidget(self.chk_winrate)
+        opt_layout.addWidget(self.chk_arrows)
+        opt_layout.addWidget(self.chk_hand)
+        opt_layout.addStretch()
+        options_layout.addWidget(opt_card)
+        
+        # Engine Options
+        eng_card = QFrame()
+        eng_card.setObjectName("dash_card")
+        eng_layout = QVBoxLayout(eng_card)
+        eng_layout.setContentsMargins(20, 20, 20, 20)
+        eng_layout.setSpacing(15)
+        
+        eng_title = QLabel("INFERENCE ENGINE")
+        eng_title.setStyleSheet("color: #8a8a8a; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;")
+        eng_layout.addWidget(eng_title)
+        
+        eng_layout.addWidget(QLabel("Neural Model Selection:"))
+        self.combo_model = QComboBox()
+        self.combo_model.addItem("AlphaZero (Auto-Latest)")
+        eng_layout.addWidget(self.combo_model)
+        
+        eng_layout.addWidget(QLabel("MCTS Simulations:"))
+        self.combo_sims = QComboBox()
+        self.combo_sims.addItems(["40", "100", "400 (High Precision)"])
+        eng_layout.addWidget(self.combo_sims)
+        eng_layout.addStretch()
+        
+        options_layout.addWidget(eng_card)
+        self.layout.addLayout(options_layout)
+        self.layout.addStretch()
+
     def toggle_assistant(self):
         if self.assistant_worker and self.assistant_worker.isRunning():
             self.stop_assistant()
@@ -86,64 +143,4 @@ class SpyTab(QWidget):
         self.btn_toggle.setObjectName("neural-btn")
         self.btn_toggle.setIcon(qta.icon("fa5s.play", color="white"))
         self.btn_toggle.setStyle(self.btn_toggle.style())
-        
-        self.layout.addWidget(master_card)
-        
-        self.layout.addSpacing(20)
-        
-        # 2. Options
-        options_layout = QHBoxLayout()
-        options_layout.setSpacing(20)
-        
-        # Display Options
-        opt_card = QFrame()
-        opt_card.setObjectName("dash_card")
-        opt_layout = QVBoxLayout(opt_card)
-        opt_layout.setContentsMargins(20, 20, 20, 20)
-        opt_layout.setSpacing(15)
-        
-        opt_title = QLabel("DISPLAY SETTINGS")
-        opt_title.setStyleSheet("color: #8a8a8a; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;")
-        opt_layout.addWidget(opt_title)
-        
-        self.chk_winrate = QCheckBox("Show Winrate %")
-        self.chk_winrate.setChecked(True)
-        self.chk_arrows = QCheckBox("Targeting Arrows")
-        self.chk_arrows.setChecked(True)
-        self.chk_hand = QCheckBox("Hand Analysis")
-        self.chk_hand.setChecked(True)
-        
-        opt_layout.addWidget(self.chk_winrate)
-        opt_layout.addWidget(self.chk_arrows)
-        opt_layout.addWidget(self.chk_hand)
-        opt_layout.addStretch()
-        options_layout.addWidget(opt_card)
-        
-        # Engine Options
-        eng_card = QFrame()
-        eng_card.setObjectName("dash_card")
-        eng_layout = QVBoxLayout(eng_card)
-        eng_layout.setContentsMargins(20, 20, 20, 20)
-        eng_layout.setSpacing(15)
-        
-        eng_title = QLabel("INFERENCE ENGINE")
-        eng_title.setStyleSheet("color: #8a8a8a; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;")
-        eng_layout.addWidget(eng_title)
-        
-        eng_layout.addWidget(QLabel("Neural Model Selection:"))
-        self.combo_model = QComboBox()
-        self.combo_model.addItem("AlphaZero (Iteration 124 - Latest)")
-        self.combo_model.addItem("AlphaZero (Iteration 112 - Best)")
-        eng_layout.addWidget(self.combo_model)
-        
-        eng_layout.addWidget(QLabel("MCTS Simulations:"))
-        self.combo_sims = QComboBox()
-        self.combo_sims.addItems(["40", "100", "400 (High Precision)"])
-        eng_layout.addWidget(self.combo_sims)
-        eng_layout.addStretch()
-        
-        options_layout.addWidget(eng_card)
-        
-        self.layout.addLayout(options_layout)
-        self.layout.addStretch()
 

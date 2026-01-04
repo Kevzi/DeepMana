@@ -43,15 +43,20 @@ class MCTS:
         # Pre-instantiate a wrapper to reuse for logic checks (avoids repeated DB loads)
         self._temp_wrapper = HearthstoneGame()
         
-    def search(self, root_state) -> List[float]:
+    def search(self, root_state, root_node: Optional[MCTSNode] = None) -> Tuple[List[float], MCTSNode]:
         """
-        Run MCTS simulations starting from root_state.
-        Returns action probabilities (pi vector).
+        Run MCTS simulations starting from root_state or an existing root_node.
+        Returns action probabilities and the root node for reuse.
         """
-        root = MCTSNode(root_state)
+        if root_node:
+            root = root_node
+            # Ensure the state is attached to the reused root
+            root.state = root_state 
+        else:
+            root = MCTSNode(root_state)
         
-        # Expand root immediately
-        self._expand(root)
+        if not root.is_expanded:
+            self._expand(root)
         
         for _ in range(self.num_simulations):
             node = root
@@ -64,14 +69,17 @@ class MCTS:
             if not node.is_expanded:
                 value = self._expand(node)
             else:
-                # Terminal state value
-                # In standard AlphaZero, we'd use the game winner if finished
-                # or the NN value if it's just a leaf we already visited.
-                value = 0 
-                if hasattr(node.state, 'winner') and node.state.winner:
-                     # Perspective-aware value
-                     # This part needs care; assume 0 for now or call evaluate
-                     pass
+                # Terminal state value: If the game is already over, we use exact result
+                value = 0.0
+                if node.state and node.state.ended:
+                    winner = node.state.winner
+                    # Value is 1.0 if the player WHOSE TURN IT IS won
+                    if winner is None: # Draw
+                        value = 0.0
+                    elif winner == node.state.current_player:
+                        value = 1.0
+                    else:
+                        value = -1.0
             
             # 3. Backpropagation (Backup)
             self._backpropagate(node, value)
@@ -84,10 +92,10 @@ class MCTS:
         
         # Normalize to probability distribution
         if counts.sum() > 0:
-            return counts / counts.sum()
+            return counts / counts.sum(), root
         else:
             # Fallback uniform
-            return np.ones(self.model.action_dim) / self.model.action_dim
+            return np.ones(self.model.action_dim) / self.model.action_dim, root
 
     def _select_child(self, node: MCTSNode) -> MCTSNode:
         """Select child using PUCT algorithm."""
@@ -120,11 +128,15 @@ class MCTS:
                 return 0.0 # Should not happen for root
 
         # Prepare for NN
+        # Perspective must match the player WHOSE TURN IT IS in node.state
+        p_idx = 0 if node.state.current_player == node.state.players[0] else 1
+        self._temp_wrapper.perspective = p_idx + 1
         self._temp_wrapper._game = node.state
         state_data = self._temp_wrapper.get_state()
         
         # Encode state
-        tensor = self.encoder.encode(state_data).unsqueeze(0) # Batch dim
+        device = next(self.model.parameters()).device
+        tensor = self.encoder.encode(state_data).unsqueeze(0).to(device)
         
         # Predict
         self.model.eval()

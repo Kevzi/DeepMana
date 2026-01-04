@@ -127,21 +127,14 @@ class MainWindow(QMainWindow):
 
     def update_stats(self, stats):
         self.training_page.update_data(stats)
-        if hasattr(self, 'analytics_page'):
-            self.analytics_page.update_data(stats)
 
     def start_training(self):
         self.status_label.setText("● TRAINING ACTIVE")
         self.status_label.setStyleSheet("color: #4ec9b0; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;")
-        self.training_page.btn_start.setEnabled(False)
-        self.training_page.btn_stop.setEnabled(True)
         self.console.append(">>> Démarrage du moteur d'entraînement...")
-        self.training_thread.start()
 
     def stop_training(self):
-        self.console.append(">>> Demande d'arrêt en cours... (Cela peut prendre un moment pour finir l'itération)")
-        self.training_thread.stop()
-        self.training_page.btn_stop.setEnabled(False)
+        self.console.append(">>> Demande d'arrêt en cours...")
 
     def on_training_finished(self):
         self.status_label.setText("● SYSTEM READY")

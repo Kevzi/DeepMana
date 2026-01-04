@@ -10,12 +10,9 @@ class DeckGenerator:
 
     @staticmethod
     def _load_meta_decks():
-        """Load decks from data/meta_decks.json.
-        
-        Supports two formats:
-        - "code": deckstring to decode
-        - "cards": direct list of card IDs
-        """
+        if DeckGenerator._cached_meta_decks:
+            return DeckGenerator._cached_meta_decks
+            
         import json
         import os
         
@@ -39,7 +36,7 @@ class DeckGenerator:
                             decks_list.append((class_name, deck['name'], deck['code']))
             except Exception as e:
                 print(f"Error loading meta_decks.json: {e}")
-        
+        DeckGenerator._cached_meta_decks = decks_list
         return decks_list
 
     @staticmethod

@@ -29,9 +29,12 @@ class Trainer:
     def __init__(self, config=None):
         self.config = config or {}
         
-        # Dynamic Dimensions from components
         self.input_dim = FeatureEncoder().input_dim
         self.action_dim = ACTION_SPACE_SIZE
+        
+        # Pre-load Card Database to avoid worker contention
+        from simulator import CardDatabase
+        CardDatabase.get_instance().load()
         
         # Hyperparameters
         self.learning_rate = 1e-4
@@ -94,10 +97,22 @@ class Trainer:
                 
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")
             
+            # Curriculum: Increase MCTS simulations progressively
+            if iteration < 20:
+                current_mcts = 15
+            elif iteration < 50:
+                current_mcts = 25
+            else:
+                current_mcts = 40
+            
+            if current_mcts != self.mcts_sims:
+                print(f"  [Curriculum] Increasing MCTS simulations: {self.mcts_sims} -> {current_mcts}")
+                self.mcts_sims = current_mcts
+            
             # 1. Self-Play
             self.model.eval() # Collect in eval mode
             self.model.to("cpu")
-            winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims)
+            winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
             
             # Log winner stats to TensorBoard
             self.writer.add_scalar("Games/Winners_Draw", winners.get(0, 0), iteration)

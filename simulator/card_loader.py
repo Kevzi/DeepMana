@@ -14,6 +14,8 @@ from .entities import CardData, Card, Minion, Spell, Weapon, Hero, HeroPower, Lo
 from card_generator.cache import EffectCache
 
 
+import threading
+
 class CardDatabase:
     """Database of all cards loaded from hearthstone_data."""
     
@@ -21,6 +23,7 @@ class CardDatabase:
     _cards: Dict[str, CardData] = {}
     _loaded: bool = False
     _cache: EffectCache = EffectCache()
+    _lock = threading.Lock()
     
     def __new__(cls) -> CardDatabase:
         if cls._instance is None:
@@ -41,8 +44,9 @@ class CardDatabase:
     @classmethod
     def load(cls) -> Dict[str, CardData]:
         """Load all cards, prioritizing local JSON update if available."""
-        if cls._loaded:
-            return cls._cards
+        with cls._lock:
+            if cls._loaded:
+                return cls._cards
         
         # 1. Try loading from updated JSON file (priority)
         import os

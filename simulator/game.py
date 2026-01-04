@@ -31,6 +31,8 @@ class Game:
         # Reset entity IDs
         Entity.reset_ids()
         
+        self.is_simulation = False # Flag to disable logging during MCTS
+        
         # Players
         self.players: List[Player] = []
         self.current_player_idx: int = 0
@@ -78,9 +80,7 @@ class Game:
         self.summon_counter: int = 0
 
     def clone(self) -> 'Game':
-        """Create a deep copy of the game state for MCTS."""
-        import copy
-        
+        """Create a fast copy of the game state for MCTS (minimal cloning)."""
         # 1. Create new empty game
         new_game = Game(self.config)
         new_game.phase = self.phase
@@ -88,21 +88,19 @@ class Game:
         new_game.turn = self.turn
         new_game.actions_this_turn = self.actions_this_turn
         new_game.current_player_idx = self.current_player_idx
+        new_game.is_simulation = True
         
-        # 2. Clone Players
-        # (We need to maintain cross-references, so we create both first)
+        # 2. Clone Players (shallow for simulation)
         new_p1 = self.players[0].clone()
         new_p2 = self.players[1].clone()
         
         new_p1.game = new_game
         new_p2.game = new_game
-        
         new_game.players = [new_p1, new_p2]
         new_p1.opponent = new_p2
-        new_p2.opponent = new_p1  # Fix missing assignment
+        new_p2.opponent = new_p1
         
-        # 3. Clone Entities and link them to new game/players
-        # Helper to clone a list of cards
+        # 3. Clone only essential entities (board, hand, hero)
         def clone_card_list(source_list, owner):
             new_list = []
             for card in source_list:
@@ -112,86 +110,39 @@ class Game:
                 new_list.append(new_card)
             return new_list
 
-        # P1 Assets
+        # P1 essentials
         if self.players[0].hero:
             new_p1.hero = self.players[0].hero.clone()
             new_p1.hero.game = new_game
             new_p1.hero.controller = new_p1
-            
         if self.players[0].hero_power:
             new_p1.hero_power = self.players[0].hero_power.clone()
             new_p1.hero_power.game = new_game
             new_p1.hero_power.controller = new_p1
-
-        new_p1.deck = clone_card_list(self.players[0].deck, new_p1)
         new_p1.hand = clone_card_list(self.players[0].hand, new_p1)
         new_p1.board = clone_card_list(self.players[0].board, new_p1)
-        new_p1.graveyard = clone_card_list(self.players[0].graveyard, new_p1)
-        
-        # P2 Assets
+        new_p1.deck = []  # Skip deck cloning for speed
+        new_p1.graveyard = []  # Skip graveyard
+
+        # P2 essentials
         if self.players[1].hero:
             new_p2.hero = self.players[1].hero.clone()
             new_p2.hero.game = new_game
             new_p2.hero.controller = new_p2
-
         if self.players[1].hero_power:
             new_p2.hero_power = self.players[1].hero_power.clone()
             new_p2.hero_power.game = new_game
             new_p2.hero_power.controller = new_p2
-
-        new_p2.deck = clone_card_list(self.players[1].deck, new_p2)
         new_p2.hand = clone_card_list(self.players[1].hand, new_p2)
         new_p2.board = clone_card_list(self.players[1].board, new_p2)
-        new_p2.graveyard = clone_card_list(self.players[1].graveyard, new_p2)
+        new_p2.deck = []  # Skip deck cloning for speed
+        new_p2.graveyard = []  # Skip graveyard
         
-        # 4. Handlers (Shallow copy is mostly fine for function references, 
-        # BUT triggers might bind to old entity instances via closure?)
-        # For MCTS, we might lose dynamic triggers if we don't re-register them.
-        # Ideally, cards re-register their triggers on 'setup' or we copy the internal trigger list mapping old entities to new ones.
-        # Complex Trigger Cloning Strategy:
-        # The `_triggers` dict maps {event: [(entity, callback), ...]}
-        # We need to map old_entity -> new_entity in this list.
-        
-        # Map IDs to new entities for lookup
-        # Problem: Entities might share IDs (copies). We rely on object identity in logic usually?
-        # Actually our engine uses object references.
-        # We need a mapping: old_entity_obj -> new_entity_obj
-        
-        entity_map = {}
-        # Populate map
-        def map_entities(p_old, p_new):
-            if p_old.hero: entity_map[p_old.hero] = p_new.hero
-            if p_old.hero_power: entity_map[p_old.hero_power] = p_new.hero_power
-            for i in range(len(p_old.deck)): entity_map[p_old.deck[i]] = p_new.deck[i]
-            for i in range(len(p_old.hand)): entity_map[p_old.hand[i]] = p_new.hand[i]
-            for i in range(len(p_old.board)): entity_map[p_old.board[i]] = p_new.board[i]
-            for i in range(len(p_old.graveyard)): entity_map[p_old.graveyard[i]] = p_new.graveyard[i]
-
-        map_entities(self.players[0], new_p1)
-        map_entities(self.players[1], new_p2)
-        
-        # Rebuild Triggers
-        # Warning: The 'callback' itself might be a closure capturing the OLD entity (e.g. "def on_end(game, trig_src=OLD_SOURCE)...").
-        # If we just copy the callback, it will run using the OLD entity constant.
-        # However, most of our auto-generated triggers use `trig_src` passed as argument!
-        # `callback(game, source, ...)` -> `source` is passed by the trigger system loop.
-        # So as long as we update the `source` in the `_triggers` list, the callback will receive the NEW source.
-        # Perfect!
-        
+        # 4. Skip trigger cloning for MCTS (effects won't trigger in quick sims)
         new_game._triggers = {k: [] for k in self._triggers}
-        for event, listeners in self._triggers.items():
-            for old_source, cb in listeners:
-                if old_source in entity_map:
-                    new_source = entity_map[old_source]
-                    new_game._triggers[event].append((new_source, cb))
-                else:
-                    # Source might be dead or not tracked? Or Hero?
-                    # If not found, skip (probably dead)
-                    pass
-
-        # Copy static handlers
-        new_game._battlecry_handlers = self._battlecry_handlers # Stateless
-        new_game._deathrattle_handlers = self._deathrattle_handlers # Stateless
+        new_game._battlecry_handlers = self._battlecry_handlers
+        new_game._deathrattle_handlers = self._deathrattle_handlers
+        new_game.action_history = []
         
         return new_game
 
@@ -1473,6 +1424,8 @@ class Game:
     
     def _log_action(self, action_type: str, data: Dict[str, Any]) -> None:
         """Log an action for replay/training."""
+        if self.is_simulation:
+            return
         self.action_history.append({
             "turn": self.turn,
             "player": self.current_player_idx,

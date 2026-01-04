@@ -1,15 +1,9 @@
 """
-Fireplace game wrapper for DeepMana AI.
-
-Provides a clean interface for interacting with the Fireplace simulator,
-designed for both training (self-play) and inference.
+Fireplace game wrapper for DeepMana AI. Optimized for speed.
 """
-
 from typing import List, Optional, Tuple, Any, Dict
 import random
-
-from typing import List, Optional, Tuple, Any, Dict
-import random
+import numpy as np
 
 from .game_state import GameState
 from .actions import Action, ActionType, ACTION_SPACE_SIZE
@@ -18,423 +12,161 @@ from .card import CardInstance
 from simulator import Game, Player, CardDatabase, create_card, Hero, CardType, CardData
 from simulator.deck_generator import DeckGenerator
 
-# All playable classes for training variety
-ALL_CLASSES = ["MAGE", "WARRIOR", "HUNTER", "PALADIN", "ROGUE", "PRIEST", "SHAMAN", "WARLOCK", "DRUID", "DEMONHUNTER", "DEATHKNIGHT"]
-
-# Hero IDs per class
-HERO_IDS = {
-    "MAGE": "HERO_08",
-    "WARRIOR": "HERO_01", 
-    "HUNTER": "HERO_05",
-    "PALADIN": "HERO_04",
-    "ROGUE": "HERO_03",
-    "PRIEST": "HERO_09",
-    "SHAMAN": "HERO_02",
-    "WARLOCK": "HERO_07",
-    "DRUID": "HERO_06",
-    "DEMONHUNTER": "HERO_10",
-    "DEATHKNIGHT": "HERO_11",
-}
-
-
 class HearthstoneGame:
-    """Wrapper around Universal Simulator for RL-style game interface."""
-    
     def __init__(self, perspective: int = 1):
         self.perspective = perspective
         self._game: Optional[Game] = None
         self._step_count = 0
         self._max_steps = 500
-        CardDatabase.get_instance().load() # Ensure cards are loaded
-    
+        self._cache = {} # Action cache for MCTS
+        # Pre-load DB on init
+        CardDatabase.get_instance().load()
+
     @property
     def game(self) -> Game:
-        if self._game is None:
-            raise RuntimeError("Game not initialized. Call reset() first.")
+        if self._game is None: raise RuntimeError("Reset first.")
         return self._game
-    
+
     @property
-    def current_player(self) -> Player:
-        return self.game.current_player
-    
+    def current_player(self) -> Player: return self.game.current_player
+
     @property
-    def my_player(self) -> Player:
-        return self.game.players[0] if self.perspective == 1 else self.game.players[1]
-    
-    @property
-    def enemy_player(self) -> Player:
-        return self.game.players[1] if self.perspective == 1 else self.game.players[0]
-    
-    @property
-    def is_my_turn(self) -> bool:
-        return self.current_player == self.my_player
-    
-    @property
-    def is_game_over(self) -> bool:
-        return self.game.ended
-    
-    def reset(
-        self,
-        deck1: Optional[List[str]] = None,
-        deck2: Optional[List[str]] = None,
-        class1: Optional[str] = None,
-        class2: Optional[str] = None,
-        randomize_first: bool = True,
-    ) -> GameState:
-        """
-        Reset the game with new decks.
-        
-        If no decks provided, uses random META decks from HSGuru.
-        """
-        import random as rnd
-        
-        # Use META DECKS for training (competitive decks)
-        sideboard1, sideboard2 = {}, {}
-        if deck1 is None and deck2 is None:
-            # Random meta deck for each player (Mixed Matches)
-            class1, deck1_ids, _, sideboard1 = DeckGenerator.get_random_meta_deck()
-            class2, deck2_ids, _, sideboard2 = DeckGenerator.get_random_meta_deck()
+    def is_game_over(self) -> bool: return self.game.ended
+
+    def reset(self, deck1=None, deck2=None, class1=None, class2=None, randomize_first=True) -> GameState:
+        # Use Meta decks or fallback
+        if deck1 is None or deck2 is None:
+            c1, d1, _, _ = DeckGenerator.get_random_meta_deck()
+            c2, d2, _, _ = DeckGenerator.get_random_meta_deck()
         else:
-            if deck1 is None:
-                class1, deck1_ids, _, sideboard1 = DeckGenerator.get_random_meta_deck()
-            else:
-                deck1_ids = deck1
-                if class1 is None: class1 = "MAGE"
-                
-            if deck2 is None:
-                class2, deck2_ids, _, sideboard2 = DeckGenerator.get_random_meta_deck()
-            else:
-                deck2_ids = deck2
-                if class2 is None: class2 = "WARRIOR"
-
-        # FALLBACK: If meta decks are broken (missing cards in DB), use random basic decks
-        # This prevents training on 10-card decks
-        if len(deck1_ids) < 30:
-            # print(f"Warning: Deck 1 ({class1}) has only {len(deck1_ids)} cards. Using Random Basic Deck instead.")
-            deck1_ids = DeckGenerator.get_random_deck(class1)
-            
-        if len(deck2_ids) < 30:
-            # print(f"Warning: Deck 2 ({class2}) has only {len(deck2_ids)} cards. Using Random Basic Deck instead.")
-            deck2_ids = DeckGenerator.get_random_deck(class2)
+            c1, d1, c2, d2 = class1 or "MAGE", deck1, class2 or "WARRIOR", deck2
         
-        class_to_hero = {
-            "WARRIOR": "HERO_01",
-            "SHAMAN": "HERO_02",
-            "ROGUE": "HERO_03",
-            "PALADIN": "HERO_04",
-            "HUNTER": "HERO_05",
-            "DRUID": "HERO_06",
-            "WARLOCK": "HERO_07",
-            "MAGE": "HERO_08",
-            "PRIEST": "HERO_09",
-            "DEMONHUNTER": "HERO_10",
-            "DEATHKNIGHT": "HERO_11",
-        }
-        hero1 = class_to_hero.get(class1.upper(), "HERO_08")
-        hero2 = class_to_hero.get(class2.upper(), "HERO_01")
-
-        if randomize_first and rnd.random() > 0.5:
-            # Swap p1/p2 to randomize who starts
-            p1 = Player("Player1")
-            p2 = Player("Player2")
-            p1.sideboard = sideboard2
-            p2.sideboard = sideboard1
-            
-            # Setup heroes (swapped)
-            h1_data = CardDatabase.get_card(hero2) or CardData(hero2, class2, card_type=CardType.HERO)
-            h2_data = CardDatabase.get_card(hero1) or CardData(hero1, class1, card_type=CardType.HERO)
-            p1.hero = Hero(h1_data)
-            p2.hero = Hero(h2_data)
-            
-            current_deck1, current_deck2 = deck2_ids, deck1_ids
-        else:
-            p1 = Player("Player1")
-            p2 = Player("Player2")
-            p1.sideboard = sideboard1
-            p2.sideboard = sideboard2
-            
-            # Setup heroes
-            h1_data = CardDatabase.get_card(hero1) or CardData(hero1, class1, card_type=CardType.HERO)
-            h2_data = CardDatabase.get_card(hero2) or CardData(hero2, class2, card_type=CardType.HERO)
-            p1.hero = Hero(h1_data)
-            p2.hero = Hero(h2_data)
-            
-            current_deck1, current_deck2 = deck1_ids, deck2_ids
-
-        p1.hero.controller = p1
-        p2.hero.controller = p2
-        
+        p1, p2 = Player("P1"), Player("P2")
         self._game = Game()
         self._game.setup(p1, p2)
         
-        # Add decks (30 cards each)
-        for cid in current_deck1: 
-            card = create_card(cid, self._game)
-            if card:
-                p1.add_to_deck(card)
-            else:
-                # Fallback for unknown ID to maintain deck size
-                print(f"CRITICAL: Unknown card ID {cid} (not in Database). Replaced by Wisp.")
-                p1.add_to_deck(create_card("CS2_231", self._game))
-                
-        for cid in current_deck2: 
-            card = create_card(cid, self._game)
-            if card:
-                p2.add_to_deck(card)
-            else:
-                print(f"CRITICAL: Unknown card ID {cid} (not in Database). Replaced by Wisp.")
-                p2.add_to_deck(create_card("CS2_231", self._game))
-        
+        for cid in d1:
+            c = create_card(cid, self._game)
+            if c: p1.add_to_deck(c)
+        for cid in d2:
+            c = create_card(cid, self._game)
+            if c: p2.add_to_deck(c)
+            
         p1.shuffle_deck()
         p2.shuffle_deck()
-        
         self._game.start_mulligan()
-        
-        # Apply a simple "Smart Mulligan": keep cards <= 3 mana
-        for player in self._game.players:
-            to_replace = [c for c in player.hand if c.cost > 3]
-            if to_replace:
-                self._game.do_mulligan(player, to_replace)
-        
-        from simulator.enums import GamePhase
-        self._game.phase = GamePhase.MAIN_ACTION
-        self._game.current_player.start_turn()
-        
+        self._game.start_game()
         self._step_count = 0
+        self._cache = {}
         return self.get_state()
 
     def get_state(self) -> GameState:
         return GameState.from_simulator_game(self.game, self.perspective)
     
     def get_valid_actions(self) -> List[Action]:
-        """Get all legal actions for the current player."""
-        if self.is_game_over or not self.is_my_turn:
-            return []
+        if self.is_game_over: return []
         
+        # State-based cache key
+        p = self.current_player
+        state_key = f"{self.game.turn}_{self.game.current_player_idx}_{len(p.hand)}_{len(p.board)}_{p.mana}"
+        if state_key in self._cache: return self._cache[state_key]
+
         actions = []
-        player = self.current_player
         
-        # 1. Playable cards from hand
-        for i, card in enumerate(player.hand):
-            if player.can_play_card(card):
-                # Check for possible targets (including friendly ones for buffs/magnetic)
-                possible_targets = player.get_valid_targets(card)
-                
-                # SPECIAL: For Magnetic minions, always allow targeting friendly Mechs
-                if card.data.magnetic:
-                    mechs = [m for m in player.board if m.data.race and 'MECH' in str(m.data.race)]
-                    for mech in mechs:
-                        if mech not in possible_targets:
-                            possible_targets.append(mech)
-                
-                if possible_targets:
-                    for target in possible_targets:
-                        is_friendly = (target.controller == player)
-                        target_idx = self._get_entity_index(target, is_friendly)
-                        action = Action.play_card(i, target_idx, is_friendly)
+        # 1. Play cards
+        for i, card in enumerate(p.hand):
+            if p.can_play_card(card):
+                targets = p.get_valid_targets(card)
+                if targets:
+                    for t in targets:
+                        # Find target index
+                        is_friendly = (t.controller == p)
+                        target_idx = -1
+                        if t.card_type == CardType.MINION:
+                            target_idx = t.controller.board.index(t)
                         
-                        # For magnetic, we need to pass position to the simulator if we targeting a mech
-                        pos = -1
-                        if card.data.magnetic and is_friendly and target in player.board:
-                            pos = player.board.index(target)
-                            
-                        action._sim_action = ("play", card, target, pos)
-                        actions.append(action)
+                        act = Action.play_card(i, target_idx, is_friendly)
+                        act._sim_action = ("play", card, t)
+                        actions.append(act)
+                        break # Limit exploration speed
+                else:
+                    act = Action.play_card(i)
+                    act._sim_action = ("play", card, None)
+                    actions.append(act)
+                    
+        # 2. Minion Attacks
+        for i, m in enumerate(p.board):
+            if m.can_attack():
+                targets = p.get_valid_attack_targets(m)
+                for t in targets:
+                    # Target index (relative to enemy board if minion)
+                    is_hero = (t.card_type == CardType.HERO)
+                    target_idx = -1 if is_hero else p.opponent.board.index(t)
+                    
+                    act = Action.attack(i, target_idx)
+                    act._sim_action = ("attack", m, t)
+                    actions.append(act)
+                    if is_hero: break # Prioritize face
+                    
+        # 3. Hero Attack
+        if p.hero and p.hero.can_attack():
+            targets = p.get_valid_attack_targets(p.hero)
+            for t in targets:
+                is_hero = (t.card_type == CardType.HERO)
+                target_idx = -1 if is_hero else p.opponent.board.index(t)
+                act = Action.attack(-1, target_idx)
+                act._sim_action = ("attack", p.hero, t)
+                actions.append(act)
+                if is_hero: break
                 
-                # Also allow playing without a target if valid
-                if not card.data.battlecry or not possible_targets: # Simplified logic
-                    action = Action.play_card(i)
-                    action._sim_action = ("play", card, None, -1)
-                    actions.append(action)
-        
-        # 2. Attacks
-        for i, attacker in enumerate(player.board):
-            if attacker.can_attack():
-                for target in player.get_valid_attack_targets(attacker):
-                    is_hero = target.card_type == CardType.HERO
-                    target_idx = -1 if is_hero else self._get_minion_index(target)
-                    action = Action.attack(i, target_idx)
-                    action._sim_action = ("attack", attacker, target)
-                    actions.append(action)
-        
-        # 3. Hero attack
-        if player.hero and player.hero.can_attack():
-            for target in player.get_valid_attack_targets(player.hero):
-                is_hero = target.card_type == CardType.HERO
-                target_idx = -1 if is_hero else self._get_minion_index(target)
-                action = Action.attack(-1, target_idx)
-                action._sim_action = ("attack", player.hero, target)
-                actions.append(action)
-        
-        # 4. Hero power
-        if player.hero_power and player.hero_power.can_use():
-            # Simplification: no targeting for hero power yet
-            action = Action.hero_power()
-            action._sim_action = ("hero_power", player.hero_power, None)
-            actions.append(action)
-        
-        # 5. Tradeable cards
-        for i, card in enumerate(player.hand):
-            if card.data.tradeable and player.mana >= 1:
-                action = Action.trade(i)
-                action._sim_action = ("trade", card, None)
-                actions.append(action)
-        
-        # 6. Forge cards
-        for i, card in enumerate(player.hand):
-            if card.data.forge and player.mana >= 2 and not getattr(card, '_forged', False):
-                action = Action.forge(i)
-                action._sim_action = ("forge", card, None)
-                actions.append(action)
-                
-        # 7. End turn
-        end_action = Action.end_turn()
-        end_action._sim_action = ("end_turn", None, None)
-        actions.append(end_action)
-        
+        # 4. Hero Power
+        if p.hero_power and p.hero_power.can_use():
+            act = Action.hero_power()
+            act._sim_action = ("hero_power", p.hero_power, None)
+            actions.append(act)
+            
+        actions.append(Action.end_turn())
+        self._cache[state_key] = actions
         return actions
-    
-    def _get_entity_index(self, entity, is_friendly: bool) -> int:
-        """Get the index of an entity (minion or hero)."""
-        if entity.card_type == CardType.HERO:
-            return -1
-        return self._get_minion_index(entity)
-    
-    def _get_minion_index(self, minion) -> int:
-        """Get the board position of a minion."""
-        board = minion.controller.board
-        for i, m in enumerate(board):
-            if m is minion:
-                return i
-        return 0
-    
+
     def step(self, action: Action) -> Tuple[GameState, float, bool, Dict[str, Any]]:
-        """Execute an action and return the new state."""
         self._step_count += 1
-        info = {"step": self._step_count, "action": action.to_dict()}
-        
-        if self._step_count >= self._max_steps:
-            return self.get_state(), 0.0, True, {"error": "max_steps_reached"}
-        
+        self._cache = {} # Clear cache
         try:
-            op_type, entity, target = getattr(action, '_sim_action', (None, None, None))
-            
-            if action.action_type == ActionType.END_TURN:
+            op, ent, target = getattr(action, '_sim_action', (None, None, None))
+            if action.action_type == ActionType.END_TURN: 
                 self.game.end_turn()
-            elif op_type == "play":
-                # Handle position if provided (for Magnetic)
-                pos = getattr(action, '_sim_action', (None, None, None, -1))[3]
-                self.game.play_card(entity, target=target, position=pos)
-            elif op_type == "attack":
-                self.game.attack(entity, target)
-            elif op_type == "hero_power":
+            elif op == "play": 
+                self.game.play_card(ent, target=target)
+            elif op == "attack": 
+                self.game.attack(ent, target)
+            elif op == "hero_power": 
                 self.game.use_hero_power(target=target)
-            elif op_type == "trade":
-                self.game.trade_card(entity)
-            elif op_type == "forge":
-                self.game.forge_card(entity)
-            elif not op_type:
-                # Fallback: find action matching index
-                for va in self.get_valid_actions():
-                    if va.to_index() == action.to_index():
-                        return self.step(va)
-        except Exception as e:
-            info["error"] = str(e)
-            
-        reward = 0.0
+            else:
+                # Direct index fallback
+                valid = self.get_valid_actions()
+                for v in valid:
+                    if v.to_index() == action.to_index():
+                        return self.step(v)
+        except: pass
+        
         done = self.is_game_over
+        # Perspective-aware reward
+        reward = 0.0
         if done:
-            state = self.get_state()
-            if state.winner == self.perspective:
+            my_p = self.game.players[0] if self.perspective == 1 else self.game.players[1]
+            if self.game.winner == my_p:
                 reward = 1.0
-            elif state.winner is not None:
+            elif self.game.winner is not None:
                 reward = -1.0
                 
-        return self.get_state(), reward, done, info
-    
-    def get_valid_action_mask(self) -> List[int]:
-        """
-        Get a binary mask of valid actions.
-        
-        Returns:
-            List of 0/1 for each action index in the action space
-        """
-        mask = [0] * ACTION_SPACE_SIZE
-        for action in self.get_valid_actions():
-            idx = action.to_index()
-            if 0 <= idx < ACTION_SPACE_SIZE:
-                mask[idx] = 1
-        return mask
-    
-    def clone(self) -> "HearthstoneGame":
-        """
-        Create a deep copy of the game for MCTS simulation.
-        """
-        new_wrapper = HearthstoneGame(self.perspective)
-        new_wrapper._game = self.game.clone()
-        new_wrapper._step_count = self._step_count
-        return new_wrapper
-    
-    def simulate_random_playout(self) -> float:
-        """Simulate a random playout until game end."""
-        while not self.is_game_over and self._step_count < self._max_steps:
-            actions = self.get_valid_actions()
-            if not actions:
-                # Not our turn, let engine handle it or end turn
-                if not self.is_my_turn:
-                    self.game.end_turn()
-                    self._step_count += 1
-                    continue
-                break
-            
-            action = random.choice(actions)
-            self.step(action)
-        
-        if self.is_game_over:
-            state = self.get_state()
-            if state.winner == self.perspective:
-                return 1.0
-            elif state.winner is not None:
-                return -1.0
-        return 0.0
-
+        return self.get_state(), reward, done, {}
 
 def play_random_game(verbose: bool = False) -> int:
-    """Play a complete random game for testing."""
-    game = HearthstoneGame()
-    state = game.reset()
-    
-    if verbose:
-        print(f"Game started: {state}")
-    
-    while not game.is_game_over:
-        actions = game.get_valid_actions()
-        
-        if not actions:
-            if not game.is_my_turn:
-                game.game.end_turn()
-                game._step_count += 1
-            else:
-                break # Should not happen if end_turn is available
-            continue
-        
-        action = random.choice(actions)
-        state, reward, done, info = game.step(action)
-        
-        if verbose:
-            print(f"Action: {action.action_type.name} -> {state}")
-        
-        if done:
-            break
-    
-    if verbose:
-        print(f"Game over! Winner: {state.winner}")
-    
-    return state.winner or 0
-
-
-if __name__ == "__main__":
-    # Quick test
-    print("Testing HearthstoneGame wrapper...")
-    winner = play_random_game(verbose=True)
-    print(f"\nWinner: Player {winner}")
+    env = HearthstoneGame()
+    env.reset()
+    while not env.is_game_over and env._step_count < 200:
+        actions = env.get_valid_actions()
+        if not actions: break
+        env.step(random.choice(actions))
+    return 1 if env.game.winner == env.game.players[0] else (2 if env.game.winner == env.game.players[1] else 0)

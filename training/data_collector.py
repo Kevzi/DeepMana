@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import time
 from typing import List, Tuple, Optional, Dict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Path hacks (assuming run from root)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,69 +16,59 @@ from ai.game_wrapper import HearthstoneGame
 from ai.replay_buffer import ReplayBuffer
 from ai.actions import Action
 
-def _play_game_worker(model_state, input_dim, action_dim, mcts_sims, game_idx, verbose):
-    """Worker function for multiprocessing."""
+def _play_game_worker(model, mcts_sims, game_idx, verbose):
+    """Worker function for multithreading."""
     try:
-        # Crucial for Windows: limit torch threads per process to save RAM
-        torch.set_num_threads(1)
-        
-        # Load card database ONCE per worker process
+        # Load card database ONCE (Thread-safe)
         from simulator import CardDatabase
         db = CardDatabase.get_instance()
         if not db.is_loaded:
-            import contextlib
-            import io
-            with contextlib.redirect_stdout(io.StringIO()):
-                db.load()
+            db.load()
         
-        # Each process needs its own model and encoder instance
-        model = HearthstoneModel(input_dim, action_dim)
-        model.load_state_dict(model_state)
-        model.eval()
+        # Threads share the same model on GPU
         encoder = FeatureEncoder()
         
-        # Randomize perspective: sometimes the AI is Player 1, sometimes Player 2
+        # Randomize perspective
         perspective = 1 if np.random.random() > 0.5 else 2
         
+        pid = os.getpid()
+        if verbose: print(f"  [Worker {pid}] Starting Game #{game_idx} (Perspective: P{perspective})")
         env = HearthstoneGame(perspective=perspective)
         env.reset()
         
         trajectory = []
         step_count = 0
         max_steps = 500
-        # Prepare state for MCTS (reuse encoder)
+        
+        # Create MCTS once per game
+        mcts = MCTS(model, encoder, None, num_simulations=mcts_sims)
+        
         while not env.is_game_over and step_count < max_steps:
-            # We must clone for MCTS as it explores future branches
+            # Dynamic perspective
+            current_p_idx = 0 if env.game.current_player == env.game.players[0] else 1
+            env.perspective = current_p_idx + 1
+            
             root_game_state = env.game.clone()
+            mcts_probs, _ = mcts.search(root_game_state)
             
-            # MCTS initialization is now lighter with the fix in ai/mcts.py
-            mcts = MCTS(model, encoder, root_game_state, num_simulations=mcts_sims)
-            mcts_probs = mcts.search(root_game_state)
-            
-            # Current player perspective encoding
             encoded_state = encoder.encode(env.get_state())
-            current_p_id = 1 if env.current_player == env.game.players[0] else 2
+            current_p_id = env.perspective
             
-            # Store transition (State, Probs, CurrentPlayerID)
+            if step_count % 20 == 0 and verbose:
+                print(f"  [Worker {pid}] Game #{game_idx} - Step {step_count}...")
+            
             trajectory.append((encoded_state, mcts_probs, current_p_id))
             
-            # Pick action using MCTS probabilities
             action_idx = np.random.choice(len(mcts_probs), p=mcts_probs)
-            
-            # Execute action using simulator's internal action if possible for speed
-            # Find the Action object from MCTS results to reuse its simulation metadata
             action = Action.from_index(action_idx)
             env.step(action)
-                
             step_count += 1
             
         # Determine winner
         winner = 0
         if env.game.winner:
             winner = 1 if env.game.winner == env.game.players[0] else 2
-        elif step_count >= max_steps:
-            if verbose: print(f"Game {game_idx} timed out after {max_steps} steps.")
-            
+        if verbose: print(f"  [Worker {pid}] Game #{game_idx} FINISHED at step {step_count}.")
         return trajectory, winner
 
     except Exception as e:
@@ -108,8 +98,8 @@ class DataCollector:
         start_time = time.time()
         winners = {0: 0, 1: 0, 2: 0}
         
-        # Pull model state to pass to workers on CPU
-        cpu_model_state = {k: v.cpu() for k, v in self.model.state_dict().items()}
+        # Use model directly on GPU
+        model_state = self.model.state_dict()
         
         completed_games = 0
         
@@ -118,9 +108,7 @@ class DataCollector:
             for i in range(num_games):
                 try:
                     trajectory, winner = _play_game_worker(
-                        cpu_model_state,
-                        self.model.input_dim,
-                        self.model.action_dim,
+                        self.model,
                         mcts_sims,
                         i,
                         verbose
@@ -138,15 +126,13 @@ class DataCollector:
                     print(f"Sequential game failed: {e}")
                     
         else:
-            # Parallel execution
-            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
+            # Parallel execution using Threads to allow GPU sharing
+            with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
                 futures = []
                 for i in range(num_games):
                     futures.append(executor.submit(
                         _play_game_worker, 
-                        cpu_model_state,
-                        self.model.input_dim,
-                        self.model.action_dim,
+                        self.model,
                         mcts_sims,
                         i,
                         verbose
