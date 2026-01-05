@@ -3,10 +3,12 @@
 Card Text: <b>Deathrattle:</b> Summon every minion killed by this weapon.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(1):
+        game.summon_token(player, "CORE_RLK_086t")

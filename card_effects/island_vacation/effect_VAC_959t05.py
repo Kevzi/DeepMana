@@ -6,6 +6,8 @@ Card Text: [x]Get 3 random
 into <b>Commons</b>!)</i>
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def on_play(game, source, target):
     # Effect: [x]Get 3 random
 <b>Legendary</b> cards.
 <i>(Then transform them
-into <b>Commons</b>!)</i>
-    # TODO: Implement
+into <b>Commons</b>!)</i>...
     pass

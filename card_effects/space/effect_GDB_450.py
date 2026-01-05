@@ -6,6 +6,8 @@ The next Draenei you play
 gains them as well.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Battlecry:</b> Gain two
 random <b>Bonus Effects</b>.
 The next Draenei you play
-gains them as well.
-    # TODO: Implement
+gains them as w...
     pass

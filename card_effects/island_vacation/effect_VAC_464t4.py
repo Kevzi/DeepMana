@@ -3,10 +3,12 @@
 Card Text: <b>Silence</b> any minion attacked by this weapon.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: <b>Silence</b> any minion attacked by this weapon.
-    # TODO: Implement
-    pass
+    # Silence a minion
+    if target:
+        game.silence(target)

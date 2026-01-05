@@ -5,10 +5,12 @@ Card Text: [x]<b>Mini</b>
 a 4/4 Whelp with <b>Elusive</b>.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(4):
+        game.summon_token(player, "TOY_380tt")

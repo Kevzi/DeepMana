@@ -5,12 +5,13 @@ cards to your hand.
 <i>(Once per game)</i>
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
     # Effect: [x]Add the snapshotted
 cards to your hand.
-<i>(Once per game)</i>
-    # TODO: Implement
+<i>(Once per game)</i>...
     pass

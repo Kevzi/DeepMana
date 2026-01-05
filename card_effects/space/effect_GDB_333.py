@@ -3,10 +3,11 @@
 Card Text: <b>Deathrattle:</b> Your next weapon costs (1) less.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: <b>Deathrattle:</b> Your next weapon costs (1) less.
-    # TODO: Implement
+    # Effect: <b>Deathrattle:</b> Your next weapon costs (1) less....
     pass

@@ -5,10 +5,12 @@ Card Text: [x]<b>Battlecry:</b> Summon a
 <i>(Changes each turn.)</i>
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(0):
+        game.summon_token(player, "JAM_012t3t")

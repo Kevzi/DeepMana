@@ -3,10 +3,12 @@
 Card Text: <b>Freeze</b> any character damaged by this minion.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: <b>Freeze</b> any character damaged by this minion.
-    # TODO: Implement
-    pass
+    # Freeze a character
+    if target:
+        target.frozen = True

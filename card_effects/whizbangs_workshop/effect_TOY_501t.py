@@ -6,6 +6,8 @@ triggers 3 times, but can't
  damage the enemy hero.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Mini</b>
 <b>Battlecry:</b> Your next <b>Battlecry</b>
 triggers 3 times, but can't
- damage the enemy hero.
-    # TODO: Implement
+ damage the ...
     pass

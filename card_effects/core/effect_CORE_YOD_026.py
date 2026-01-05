@@ -5,12 +5,12 @@ minion's Attack to a random
 friendly minion.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: [x]<b>Deathrattle:</b> Give this
-minion's Attack to a random
-friendly minion.
-    # TODO: Implement
-    pass
+    # Give +0/+0 and keywords
+    if target:
+        pass

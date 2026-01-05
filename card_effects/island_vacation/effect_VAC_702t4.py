@@ -6,6 +6,8 @@ with <b>Legendary</b> minions.
 They cost (1) less.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Taunt</b>
 <b> Battlecry:</b> Replace your hand
 with <b>Legendary</b> minions.
-They cost (1) less.
-    # TODO: Implement
+They cost (1) le...
     pass

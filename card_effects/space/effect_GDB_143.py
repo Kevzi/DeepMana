@@ -6,13 +6,13 @@ in your hand +3/+3 and this
 has these effects).</i>
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: [x]<b>Spellburst:</b> Give a minion
-in your hand +3/+3 and this
-<b>Spellburst</b> <i>(unless it already
-has these effects).</i>
-    # TODO: Implement
-    pass
+    # Give +3/+3 and keywords
+    if target:
+        
+target._attack += 3        target._max_health += 3        target._health += 3

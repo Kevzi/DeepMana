@@ -6,6 +6,8 @@ they become <b>Immune</b> for
 the rest of the turn.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Lifesteal</b>
 After a hero takes damage,
 they become <b>Immune</b> for
-the rest of the turn.
-    # TODO: Implement
+the rest of the turn....
     pass

@@ -5,12 +5,13 @@ Card Text: <b>Taunt</b>, <b>Reborn</b>
 a different friendly <b>Deathrattle</b> minion.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
     # Effect: <b>Taunt</b>, <b>Reborn</b>
 <b>Deathrattle:</b> Resurrect
-a different friendly <b>Deathrattle</b> minion.
-    # TODO: Implement
+a different friendly <b>Deathrattle</b> mi...
     pass

@@ -6,6 +6,8 @@ to your hand <i>(from your
 opponent's class).</i>
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Stealth</b>. Whenever this
 attacks, add a random card
 to your hand <i>(from your
-opponent's class).</i>
-    # TODO: Implement
+opponent's cl...
     pass

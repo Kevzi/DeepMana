@@ -3,10 +3,13 @@
 Card Text: <b>Battlecry:</b> Give a friendly Undead +2 Attack.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: <b>Battlecry:</b> Give a friendly Undead +2 Attack.
-    # TODO: Implement
-    pass
+    # Give +2/+0 and keywords
+    if target:
+        
+target._attack += 2

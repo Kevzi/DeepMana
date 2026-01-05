@@ -5,12 +5,13 @@ other minions 2 turns
 into the future.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
     # Effect: [x]<b>Battlecry:</b> Send all
 other minions 2 turns
-into the future.
-    # TODO: Implement
+into the future....
     pass

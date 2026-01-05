@@ -6,6 +6,8 @@ but immediately dies
 after being played.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]Your first <b>Battlecry</b>
 minion each turn costs (1),
 but immediately dies
-after being played.
-    # TODO: Implement
+after being played....
     pass

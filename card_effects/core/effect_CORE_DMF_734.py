@@ -6,10 +6,22 @@ friendly minion "<b>Deathrattle:</b>
 Summon Greybough."
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon random minion(s)
+    import random
+    from simulator import CardDatabase
+    db = CardDatabase.get_instance()
+    minions = [c.card_id for c in db._cards.values() 
+               if c.collectible and c.card_type.name == 'MINION']
+    for _ in range(1):
+        if minions:
+            game.summon_token(player, random.choice(minions))
+    # Give +0/+0 and keywords
+    if target:
+        pass
+        target._taunt = True

@@ -6,6 +6,8 @@ your hero attacks.
 <i>(Changes each turn.)</i>
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]Also damages minions
 adjacent to whomever
 your hero attacks.
-<i>(Changes each turn.)</i>
-    # TODO: Implement
+<i>(Changes each turn.)</i>...
     pass

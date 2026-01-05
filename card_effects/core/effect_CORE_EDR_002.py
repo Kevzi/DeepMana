@@ -4,11 +4,13 @@ Card Text: Give a friendly
 Undead <b>Poisonous</b>.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: Give a friendly
-Undead <b>Poisonous</b>.
-    # TODO: Implement
-    pass
+    # Give +0/+0 and keywords
+    if target:
+        pass
+        target._poisonous = True

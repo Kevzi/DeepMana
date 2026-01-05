@@ -6,13 +6,13 @@ Demon +2 Attack and
 <b>Immune</b> this turn.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: [x]<b>Mini</b>
-<b>Battlecry:</b> Give a friendly
-Demon +2 Attack and
-<b>Immune</b> this turn.
-    # TODO: Implement
-    pass
+    # Give +2/+0 and keywords
+    if target:
+        
+target._attack += 2

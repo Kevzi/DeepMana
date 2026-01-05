@@ -5,12 +5,13 @@ Card Text: <b>Divine Shield</b>
 Cost of your Librams by (1) this game.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
     # Effect: <b>Divine Shield</b>
 <b>Battlecry:</b> Reduce the
-Cost of your Librams by (1) this game.
-    # TODO: Implement
+Cost of your Librams by (1) this game....
     pass

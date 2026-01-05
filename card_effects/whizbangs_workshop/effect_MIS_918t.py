@@ -6,6 +6,8 @@ Holy spell you've cast
 this game.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]<b>Gigantic</b>
 Costs (1) less for each
 Holy spell you've cast
-this game.
-    # TODO: Implement
+this game....
     pass

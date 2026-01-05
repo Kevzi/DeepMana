@@ -6,6 +6,8 @@ can attack again <i>(except
 Exarch Akama)</i>.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]After this attacks,
 all other friendly minions
 can attack again <i>(except
-Exarch Akama)</i>.
-    # TODO: Implement
+Exarch Akama)</i>....
     pass

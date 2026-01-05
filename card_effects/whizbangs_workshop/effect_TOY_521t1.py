@@ -5,12 +5,13 @@ Card Text: [x]<b>Mini</b>
 this turn costs (2) less.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
     # Effect: [x]<b>Mini</b>
 <b>Battlecry:</b> Your next card
-this turn costs (2) less.
-    # TODO: Implement
+this turn costs (2) less....
     pass

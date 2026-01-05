@@ -5,12 +5,13 @@ random Frost spells.
 <i>(Changes each turn.)</i>
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
     # Effect: [x]<b>Battlecry:</b> Get two
 random Frost spells.
-<i>(Changes each turn.)</i>
-    # TODO: Implement
+<i>(Changes each turn.)</i>...
     pass

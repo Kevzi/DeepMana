@@ -6,6 +6,8 @@ to whomever this attacks
 neighbor is missing)</i>.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def battlecry(game, source, target):
     # Effect: [x]Also damages minions next
 to whomever this attacks
 <i>(and the enemy hero if a
-neighbor is missing)</i>.
-    # TODO: Implement
+neighbor is missin...
     pass

@@ -6,6 +6,8 @@ random playable Mage
 or Neutral card.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def on_play(game, source, target):
     # Effect: [x]Each turn this is in your
 hand, transform it into a
 random playable Mage
-or Neutral card.
-    # TODO: Implement
+or Neutral card....
     pass

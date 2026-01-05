@@ -5,12 +5,13 @@ Card Text: [x]Give a minion in
 <i>(2 Drinks left!)</i>
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: [x]Give a minion in
-  your hand +2/+1. 
-<i>(2 Drinks left!)</i>
-    # TODO: Implement
-    pass
+    # Give +2/+1 and keywords
+    if target:
+        
+target._attack += 2        target._max_health += 1        target._health += 1

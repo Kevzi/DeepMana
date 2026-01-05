@@ -3,10 +3,11 @@
 Card Text: <b>Battlecry:</b> Copy a card in your opponent’s deck and add it to your hand.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: <b>Battlecry:</b> Copy a card in your opponent’s deck and add it to your hand.
-    # TODO: Implement
+    # Effect: <b>Battlecry:</b> Copy a card in your opponent’s deck and add it to your hand....
     pass

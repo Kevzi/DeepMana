@@ -6,6 +6,8 @@ different Librams from
 an older timeline!
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def deathrattle(game, source):
     # Effect: [x]<b>Rush</b>
 <b>Deathrattle:</b> Get three
 different Librams from
-an older timeline!
-    # TODO: Implement
+an older timeline!...
     pass

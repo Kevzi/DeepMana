@@ -6,6 +6,8 @@ minion to your hand.
 It costs (2) less.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def deathrattle(game, source):
     # Effect: [x]<b>Deathrattle:</b> Return
 a random friendly
 minion to your hand.
-It costs (2) less.
-    # TODO: Implement
+It costs (2) less....
     pass

@@ -6,10 +6,12 @@ kills a minion, summon 2
  Murlocs from your deck.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(2):
+        game.summon_token(player, "CORE_CFM_344t")

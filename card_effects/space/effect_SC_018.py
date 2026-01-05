@@ -6,10 +6,12 @@ Your other Zerg minions gain
 <b>Reborn</b> and attack it.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(1):
+        game.summon_token(player, "SC_018t")

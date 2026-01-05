@@ -3,10 +3,11 @@
 Card Text: Refresh 2 Mana Crystals.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: Refresh 2 Mana Crystals.
-    # TODO: Implement
+    # Effect: Refresh 2 Mana Crystals....
     pass

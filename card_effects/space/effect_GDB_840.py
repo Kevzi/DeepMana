@@ -5,13 +5,15 @@ Card Text: [x]<b>Deathrattle:</b> Summon a
 lowest Health enemy.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon token(s)
+    for _ in range(3):
+        game.summon_token(player, "GDB_840t")
     # Restore 3 Health
     if target:
         game.heal(target, 3, source)

@@ -3,10 +3,11 @@
 Card Text: Cards in this deck transform into random playable cards each turn while in hand.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: Cards in this deck transform into random playable cards each turn while in hand.
-    # TODO: Implement
+    # Effect: Cards in this deck transform into random playable cards each turn while in hand....
     pass

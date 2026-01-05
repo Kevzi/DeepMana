@@ -3,10 +3,13 @@
 Card Text: +2 Attack.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: +2 Attack.
-    # TODO: Implement
-    pass
+    # Give +2/+0 and keywords
+    if target:
+        
+target._attack += 2

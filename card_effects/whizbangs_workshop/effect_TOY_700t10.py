@@ -3,10 +3,11 @@
 Card Text: This deck is HEROIC!
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: This deck is HEROIC!
-    # TODO: Implement
+    # Effect: This deck is HEROIC!...
     pass

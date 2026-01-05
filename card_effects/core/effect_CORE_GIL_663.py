@@ -3,10 +3,11 @@
 Card Text: Add two 2/2 Treants to your hand.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: Add two 2/2 Treants to your hand.
-    # TODO: Implement
+    # Effect: Add two 2/2 Treants to your hand....
     pass

@@ -6,6 +6,8 @@ Card Text: [x]<b>Mini</b>
 friendly Mech.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def deathrattle(game, source):
     # Effect: [x]<b>Mini</b>
 <b>Deathrattle:</b> Trigger the
 <b>Deathrattle</b> of a random
-friendly Mech.
-    # TODO: Implement
+friendly Mech....
     pass

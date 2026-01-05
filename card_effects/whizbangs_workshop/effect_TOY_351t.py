@@ -6,6 +6,8 @@ random Beast in your deck.
 It costs (3) less.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def deathrattle(game, source):
     # Effect: [x]<b>Mini</b>
 <b>Deathrattle:</b> Get a copy of a
 random Beast in your deck.
-It costs (3) less.
-    # TODO: Implement
+It costs (3) less....
     pass

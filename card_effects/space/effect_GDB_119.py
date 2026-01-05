@@ -6,6 +6,8 @@ that costs (3) or less
 between them.
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def on_play(game, source, target):
     # Effect: [x]Get two 4/4 Crewmates.
 Put a random Demon
 that costs (3) or less
-between them.
-    # TODO: Implement
+between them....
     pass

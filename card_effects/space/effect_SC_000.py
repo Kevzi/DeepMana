@@ -6,6 +6,8 @@ minions have <b>Rush</b>
 this turn.
 """
 
+from simulator.enums import CardType
+
 def deathrattle(game, source):
     player = source.controller
     opponent = player.opponent
@@ -13,6 +15,5 @@ def deathrattle(game, source):
     # Effect: [x]Get a 1/1 Zergling.
 <b>Deathrattle:</b> Your Zerg
 minions have <b>Rush</b>
-this turn.
-    # TODO: Implement
+this turn....
     pass

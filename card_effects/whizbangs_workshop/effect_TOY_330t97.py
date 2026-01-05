@@ -4,10 +4,12 @@ Card Text: [x]<b>Battlecry:</b> Summon a
 copy of this.
 """
 
+from simulator.enums import CardType
+
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Summon effect
-    # TODO: Implement summon logic for specific token
-    pass
+    # Summon a copy of this minion
+    if source.card_id:
+        game.summon_token(player, source.card_id)

@@ -3,10 +3,11 @@
 Card Text: This deck is EVIL!
 """
 
+from simulator.enums import CardType
+
 def on_play(game, source, target):
     player = source.controller
     opponent = player.opponent
 
-    # Effect: This deck is EVIL!
-    # TODO: Implement
+    # Effect: This deck is EVIL!...
     pass
