@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from typing import Dict, Any
 from .game_state import GameState
 from .actions import ACTION_SPACE_SIZE
 
@@ -121,6 +122,54 @@ class FeatureEncoder:
             res.extend([0.0] * (self.card_dim - len(res)))
         return res[:self.card_dim]
 
-    @property
-    def observation_shape(self):
-        return (self.input_dim,)
+    def structured_encode(self, state: GameState) -> Dict[str, Any]:
+        """Encodes state into structured format for Transformer model."""
+        p1, p2 = state.friendly_player, state.enemy_player
+        
+        # 1. Global Scalars
+        scalars = [
+            p1.mana / 10.0, p1.max_mana / 10.0, p1.hero.health / 30.0, p1.hero.armor / 20.0,
+            p1.overload / 10.0, p1.fatigue / 10.0, len(p1.hand) / 10.0, p1.deck_size / 30.0,
+            p2.hero.health / 30.0, p2.hero.armor / 20.0, p2.overload / 10.0, p2.fatigue / 10.0,
+            len(p2.hand) / 10.0, p2.deck_size / 30.0, 1.0 if state.is_my_turn else 0.0,
+        ]
+        scalars.extend([0.0] * (20 - len(scalars)))
+        
+        def encode_list(cards, max_size):
+            ids = []
+            stats = []
+            mask = []
+            for i in range(max_size):
+                if i < len(cards):
+                    c = cards[i]
+                    # Simple card ID hashing for embedding (should ideally use a proper mapping)
+                    try:
+                        cid_numeric = hash(getattr(c, 'card_id', "0")) % 5000
+                    except:
+                        cid_numeric = 0
+                    ids.append(cid_numeric)
+                    # Convert to numeric list and then to 10-stat vector for the model
+                    card_feat = self._encode_card(c)
+                    stats.append(card_feat[:10]) # Use first 10 core stats
+                    mask.append(False) # Not padded
+                else:
+                    ids.append(0)
+                    stats.append([0.0] * 10)
+                    mask.append(True) # Padded
+            return torch.tensor(ids, dtype=torch.long), torch.tensor(stats, dtype=torch.float32), torch.tensor(mask, dtype=torch.bool)
+
+        hand_ids, hand_stats, hand_mask = encode_list(p1.hand, self.max_hand)
+        my_board_ids, my_board_stats, my_board_mask = encode_list(p1.board, self.max_board)
+        en_board_ids, en_board_stats, en_board_mask = encode_list(p2.board, self.max_board)
+        
+        return {
+            "hand": (hand_ids, hand_stats),
+            "my_board": (my_board_ids, my_board_stats),
+            "enemy_board": (en_board_ids, en_board_stats),
+            "global_state": torch.tensor(scalars, dtype=torch.float32),
+            "masks": {
+                "hand": hand_mask,
+                "my_board": my_board_mask,
+                "enemy_board": en_board_mask
+            }
+        }

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from .card_loader import CardDatabase
 from .entities import Minion, Spell, Weapon, Hero, HeroPower, Card, CardData, Location
-from .enums import CardType, CardClass, Rarity
+from .enums import CardType, CardClass, Rarity, Race
 
 if TYPE_CHECKING:
     from .player import Player
@@ -28,6 +28,15 @@ def create_card(card_id: str, controller: 'Player') -> Card:
              card_class=CardClass.NEUTRAL,
              rarity=Rarity.COMMON
          )
+    
+    # --- MANUAL TOKEN FALLBACKS ---
+    if card_id == "UNG_809t":
+        data.name = "Flame Elemental"
+        data.cost = 1
+        data.attack = 1
+        data.health = 2
+        data.race = Race.ELEMENTAL
+        data.text = ""
 
     game = controller.game if controller else None
     entity = None

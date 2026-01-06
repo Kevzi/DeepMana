@@ -55,6 +55,8 @@ class CardData:
     
     # New mechanics (2020+)
     # Expansion specific flags
+    magnetic: bool = False          # Can merge with Mech
+    colossal: bool = False          # Has Colossal mechanic
     colossal_count: int = 0         # Colossal +X appendages
     colossal_appendages: List[str] = field(default_factory=list)  # IDs of appendage cards
     titan: bool = False             # Has 3 titan abilities
@@ -208,6 +210,71 @@ class Card(Entity):
         self._infuse_progress: int = 0            # Current infuse count
         self._infused: bool = False               # Is card infused?
         self.titan_abilities_used: List[str] = [] # Ability IDs already used
+        
+        # Enchantments system (PDF spec: buffs are separate entities)
+        self.enchantments: List['Enchantment'] = []
+        
+        # Lazy stats cache
+        self._stats_dirty = True
+        self._cached_attack = None
+        self._cached_health = None
+        self._cached_cost = None
+    
+    def invalidate_stats(self) -> None:
+        """Invalidate cached stats when an aura or enchantment changes."""
+        self._stats_dirty = True
+        self._cached_attack = None
+        self._cached_health = None
+        self._cached_cost = None
+    
+    def add_enchantment(
+        self, 
+        source: Optional[Entity] = None,
+        attack_mod: int = 0,
+        health_mod: int = 0,
+        cost_mod: int = 0,
+        name: str = "Buff",
+        temporary: bool = False
+    ) -> 'Enchantment':
+        """Create and attach an enchantment to this card."""
+        from .entities import Enchantment  # Avoid circular import
+        ench = Enchantment(
+            game=self.game,
+            source=source,
+            target=self,
+            name=name
+        )
+        ench.attack_mod = attack_mod
+        ench.health_mod = health_mod
+        ench.cost_mod = cost_mod
+        ench.temporary = temporary
+        ench.apply()
+        return ench
+    
+    def purge_enchantments(self) -> None:
+        """Remove all enchantments (Backward Flow: return to deck/hand)."""
+        for ench in list(self.enchantments):
+            ench.remove()
+        self.enchantments.clear()
+        # Reset to base stats
+        self._attack = self.data.attack
+        self._health = self.data.health
+        self._max_health = self.data.health
+        self._cost = self.data.cost
+    
+    def purge_temporary_enchantments(self) -> None:
+        """Remove 'Until end of turn' enchantments."""
+        for ench in list(self.enchantments):
+            if ench.temporary:
+                ench.remove()
+    
+    def get_enchantment_attack_bonus(self) -> int:
+        """Calculate total attack bonus from enchantments."""
+        return sum(e.attack_mod for e in self.enchantments)
+    
+    def get_enchantment_health_bonus(self) -> int:
+        """Calculate total health bonus from enchantments."""
+        return sum(e.health_mod for e in self.enchantments)
     
     def clone(self) -> 'Card':
         """Create a deep copy of the card."""
@@ -304,33 +371,76 @@ class Card(Entity):
         return self.data.card_class
         
     @property
+    def magnetic(self) -> bool: return self.data.magnetic
+    
+    @property
+    def colossal(self) -> bool: return self.data.colossal
+    
+    @property
+    def colossal_count(self) -> int: return self.data.colossal_count
+        
+    @property
     def spell_school(self) -> SpellSchool:
         return self.data.spell_school
     
     @property
     def cost(self) -> int:
-        return max(0, self._cost)
+        if self._stats_dirty or self._cached_cost is None:
+            self._recalculate_stats()
+        return self._cached_cost
     
     @cost.setter
     def cost(self, value: int) -> None:
         self._cost = value
+        self.invalidate_stats()
     
     @property
     def attack(self) -> int:
-        return max(0, self._attack)
+        if self._stats_dirty or self._cached_attack is None:
+            self._recalculate_stats()
+        return self._cached_attack
     
     @attack.setter
     def attack(self, value: int) -> None:
         self._attack = value
+        self.invalidate_stats()
     
     @property
     def health(self) -> int:
-        return self._max_health - self._damage
+        if self._stats_dirty or self._cached_health is None:
+            self._recalculate_stats()
+        return self._cached_health - self._damage
     
     @health.setter
     def health(self, value: int) -> None:
         self._max_health = value
-        self._damage = max(0, self._max_health - value)
+        self.invalidate_stats()
+    
+    def _recalculate_stats(self) -> None:
+        """Internal method to recalculate all stats through the 'onion' layers."""
+        # Base values from _attack, _max_health, _cost
+        atk = self._attack
+        max_hp = self._max_health
+        cost = self._cost
+        
+        if self.game and not self.silenced:
+            # 1. Aura/Modifier calculation via Events
+            atk_mod = {"amount": atk}
+            hp_mod = {"amount": max_hp}
+            cost_mod = {"amount": cost}
+            
+            self.game.fire_event("on_calculate_attack", self, atk_mod)
+            self.game.fire_event("on_calculate_health", self, hp_mod)
+            self.game.fire_event("on_calculate_cost", self, cost_mod)
+            
+            atk = max(0, atk_mod["amount"])
+            max_hp = max_hp_mod = hp_mod["amount"]
+            cost = max(0, cost_mod["amount"])
+            
+        self._cached_attack = atk
+        self._cached_health = max_hp
+        self._cached_cost = cost
+        self._stats_dirty = False
     
     @property
     def max_health(self) -> int:
@@ -628,3 +738,64 @@ class Location(Card):
         """Reduce cooldown at start of turn."""
         if self.cooldown > 0:
             self.cooldown -= 1
+
+
+class Enchantment(Entity):
+    """An enchantment (buff/debuff) attached to an entity.
+    
+    Per PDF spec: "Lorsqu'un serviteur reçoit un buff '+1/+1', le moteur ne 
+    modifie pas simplement une variable int ; il crée une nouvelle entité 
+    'Enchantement', l'attache au serviteur."
+    """
+    
+    def __init__(
+        self, 
+        game: Optional[Game] = None,
+        source: Optional[Entity] = None,
+        target: Optional[Entity] = None,
+        name: str = "Buff"
+    ):
+        super().__init__(game)
+        self.source: Optional[Entity] = source  # Who created this enchantment
+        self.target: Optional[Entity] = target  # Who it's attached to
+        self.name: str = name
+        
+        # Stat modifiers
+        self.attack_mod: int = 0
+        self.health_mod: int = 0
+        self.cost_mod: int = 0
+        
+        # Keyword grants
+        self.grants_taunt: bool = False
+        self.grants_divine_shield: bool = False
+        self.grants_charge: bool = False
+        self.grants_windfury: bool = False
+        self.grants_stealth: bool = False
+        self.grants_poisonous: bool = False
+        self.grants_lifesteal: bool = False
+        self.grants_rush: bool = False
+        self.grants_immune: bool = False
+        
+        # Temporary (until end of turn)
+        self.temporary: bool = False
+        
+        # Set zone to SETASIDE (enchantments are not in play zones)
+        self.zone = Zone.SETASIDE
+    
+    def apply(self) -> None:
+        """Attach this enchantment to its target."""
+        if self.target and hasattr(self.target, 'enchantments'):
+            self.target.enchantments.append(self)
+            self.set_tag(GameTag.ATTACHED, self.target.entity_id)
+        if self.source:
+            self.set_tag(GameTag.CREATOR, self.source.entity_id)
+    
+    def remove(self) -> None:
+        """Remove this enchantment from its target."""
+        if self.target and hasattr(self.target, 'enchantments'):
+            if self in self.target.enchantments:
+                self.target.enchantments.remove(self)
+        self.zone = Zone.REMOVEDFROMGAME
+    
+    def __repr__(self) -> str:
+        return f"<Enchantment '{self.name}' +{self.attack_mod}/+{self.health_mod}>"

@@ -42,10 +42,18 @@ class HearthstoneGame:
     }
 
     def reset(self, deck1=None, deck2=None, class1=None, class2=None, randomize_first=True) -> GameState:
-        # Use Meta decks or fallback
+        # Use Meta decks, Arena decks, or fallback
         if deck1 is None or deck2 is None:
-            c1, d1, _, _ = DeckGenerator.get_random_meta_deck()
-            c2, d2, _, _ = DeckGenerator.get_random_meta_deck()
+            # 50% chance of Meta deck, 50% chance of Arena deck
+            if random.random() > 0.5:
+                c1, d1, _ , _ = DeckGenerator.get_random_meta_deck()
+            else:
+                c1, d1, _ = DeckGenerator.get_arena_deck()
+                
+            if random.random() > 0.5:
+                c2, d2, _, _ = DeckGenerator.get_random_meta_deck()
+            else:
+                c2, d2, _ = DeckGenerator.get_arena_deck()
         else:
             c1, d1, c2, d2 = class1 or "MAGE", deck1, class2 or "WARRIOR", deck2
         
@@ -82,10 +90,23 @@ class HearthstoneGame:
         self._game.start_game()
         self._step_count = 0
         self._cache = {}
+        # Initialize health tracking for reward shaping
+        self._prev_my_health = 30
+        self._prev_enemy_health = 30
         return self.get_state()
 
     def get_state(self) -> GameState:
         return GameState.from_simulator_game(self.game, self.perspective)
+    
+    def get_action_mask(self) -> np.ndarray:
+        """Returns a binary mask of valid actions for the current state."""
+        mask = np.zeros(ACTION_SPACE_SIZE, dtype=np.float32)
+        valid_actions = self.get_valid_actions()
+        for action in valid_actions:
+            idx = action.to_index()
+            if 0 <= idx < ACTION_SPACE_SIZE:
+                mask[idx] = 1.0
+        return mask
     
     def get_valid_actions(self) -> List[Action]:
         if self.is_game_over: return []
@@ -175,14 +196,49 @@ class HearthstoneGame:
         except: pass
         
         done = self.is_game_over
-        # Perspective-aware reward
+        
+        # === REWARD SHAPING ===
+        # Primary goal: KILL THE ENEMY HERO
+        # Victory = +1.0, Defeat = -1.0
+        # Intermediate rewards to guide learning:
+        #   - Damage to enemy hero: small positive reward
+        #   - Taking damage: small negative reward
+        
+        my_p = self.game.players[0] if self.perspective == 1 else self.game.players[1]
+        enemy_p = my_p.opponent
+        
         reward = 0.0
+        
         if done:
-            my_p = self.game.players[0] if self.perspective == 1 else self.game.players[1]
+            # Terminal rewards (most important)
             if self.game.winner == my_p:
-                reward = 1.0
+                reward = 1.0  # VICTORY - highest reward
             elif self.game.winner is not None:
-                reward = -1.0
+                reward = -1.0  # DEFEAT - highest penalty
+            # Draw = 0.0
+        else:
+            # Intermediate reward shaping (small values to not overshadow win/loss)
+            # Track health changes from last step
+            my_health = my_p.hero.health if my_p.hero else 0
+            enemy_health = enemy_p.hero.health if enemy_p.hero else 0
+            
+            # Store previous health for comparison
+            prev_my_health = getattr(self, '_prev_my_health', 30)
+            prev_enemy_health = getattr(self, '_prev_enemy_health', 30)
+            
+            # Reward for dealing damage to enemy hero
+            enemy_damage_dealt = prev_enemy_health - enemy_health
+            if enemy_damage_dealt > 0:
+                reward += enemy_damage_dealt * 0.02  # +0.02 per damage to enemy hero
+            
+            # Small penalty for taking damage (encourages efficient trades)
+            my_damage_taken = prev_my_health - my_health
+            if my_damage_taken > 0:
+                reward -= my_damage_taken * 0.005  # -0.005 per damage taken
+            
+            # Update tracking
+            self._prev_my_health = my_health
+            self._prev_enemy_health = enemy_health
                 
         return self.get_state(), reward, done, {}
 

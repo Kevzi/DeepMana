@@ -1,188 +1,108 @@
 <p align="center">
-  <img src="gui/assets/logo.png" width="250" alt="DeepMana Logo">
+  <img src="client/assets/logo.png" width="250" alt="HearthstoneOne Logo" onerror="this.src='https://raw.githubusercontent.com/Kevzi/HearthstoneOne/main/docs/logo_placeholder.png'">
 </p>
 
-# 💠 DeepMana
+# 💠 HearthstoneOne
+> **The Ultimate SaaS AI Coaching Platform for Hearthstone** — Real-time Intelligence via Cloud-Inference
 
-> **Evolutionary AI for Hearthstone** — Real-time Coaching + AlphaZero Training
-
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![FastAPI](https://img.shields.io/badge/FastAPI-Modern-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![SaaS](https://img.shields.io/badge/Business-SaaS_Architecture-blue?style=for-the-badge)
 
 ---
 
-## ✨ What is DeepMana?
+## ✨ What is HearthstoneOne?
 
-DeepMana is a complete Artificial Intelligence ecosystem for Hearthstone:
+HearthstoneOne is a professional-grade AI ecosystem designed for both players and researchers. Unlike traditional local trackers, it uses a **Thick Server / Thin Client** architecture to provide state-of-the-art decision making while protecting intellectual property.
 
-- 🧠 **AlphaZero AI** — Learns to play from scratch via self-play (MCTS + Deep Learning)
-- 🖥️ **Hub Dashboard** — Unified interface inspired by **Unity Hub** for training control and analytics
-- 🏟️ **Arena Mode** — Dedicated support for Draft & Play with **2026 Rotation** card pool (1500+ cards)
-- 👁️ **Real-Time Overlay** — **Glassmorphism Design** overlay providing live move suggestions
-- 🏎️ **Optimized Engine** — High-performance MCTS with object reuse and lazy simulation
-- 🎮 **Universal Simulator** — Supports 1800+ cards and integration of real **Meta Decks**
-- 📈 **TensorBoard Monitoring** — Live tracking of metrics and win probability
-- 🕵️ **Auto-Validation** — Automated testing tool for card effect integrity
+- 🧠 **PPO + Set Transformer** — Uses Proximal Policy Optimization and permutation-invariant attention networks to capture complex card synergies.
+- ☁️ **Cloud Inference** — The AI "Brain" lives on high-performance servers, ensuring low latency and high security.
+- 👁️ **Premium Animated Overlay** — Neon-style, pulsating visual guides drawn directly over the game using a high-performance Win32 transparent layer.
+- 🛡️ **HWID Security** — Enterprise-grade hardware locking and token-based authentication (Ready for Stripe).
+- 🏎️ **Universal Simulator** — Custom high-performance engine supporting 7000+ cards with lazy-evaluation optimizations.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ SaaS Architecture
+
+HearthstoneOne is split into two optimized components:
 
 ```mermaid
-flowchart TB
-    subgraph GAME["🎮 Hearthstone"]
-        Client[Hearthstone Client]
-        Log[Power.log]
-        Client --> Log
+flowchart TD
+    subgraph LOCAL["💻 USER MACHINE (Client)"]
+        HS[Hearthstone Game]
+        LOG[Power.log]
+        HUB[HearthstoneOne HUB - PySide6]
+        OVERLAY[Neon Overlay - Transparent]
+        
+        HS --> LOG
+        LOG -- Tailing --> HUB
+        HUB -- Draw --> OVERLAY
     end
 
-    subgraph ENGINE["⚙️ DeepMana Engine"]
-        subgraph RUNTIME["Runtime"]
-            Watcher[LogWatcher]
-            Parser[Parser]
-            Watcher --> Parser
-        end
-
-        subgraph CORE["Core"]
-            Sim[Simulator]
-            Parser --> Sim
-        end
-
-        subgraph AI["Artificial Intelligence"]
-            Encoder[Encoder]
-            Model[Neural Network]
-            MCTS[MCTS]
-            Sim --> Encoder
-            Encoder --> Model
-            Model --> MCTS
-        end
-
-        subgraph UI["Interface"]
-            Dashboard[Dashboard GUI]
-            Overlay[Overlay Window]
-            MCTS --> Overlay
-        end
+    subgraph CLOUD["☁️ AI INFRASTRUCTURE (Server)"]
+        FAST[FastAPI Gateway]
+        AUTH[HWID & Stripe Shield]
+        PPO[PPO Engine]
+        TRANS[Set Transformer Model]
+        
+        FAST --> AUTH
+        AUTH --> PPO
+        PPO --> TRANS
     end
 
-    Log --> Watcher
-    Overlay --> Client
-
-    style Model fill:#f9f,stroke:#333,stroke-width:2px
-    style Sim fill:#bbf,stroke:#333,stroke-width:2px
-    style Overlay fill:#bfb,stroke:#333,stroke-width:2px
-    style Dashboard fill:#bfb,stroke:#333,stroke-width:2px
+    HUB -- Secure WebSocket (TLS) --> FAST
+    FAST -- Real-time Suggestions --> HUB
 ```
 
 ---
 
-## 🧠 AlphaZero: The Brain
+## 🚀 Getting Started
 
-The AI uses DeepMind's **AlphaZero** algorithm, adapted for Hearthstone.
-
-### Learning Cycle
-
-```mermaid
-flowchart LR
-    A[🎮 Self-Play Parallel] --> B[💾 Replay Buffer]
-    B --> C[🏋️ Training GPU]
-    C --> D[🧠 Neural Net]
-    D --> A
-
-    style D fill:#f9f,stroke:#333
-```
-
-| Component | Description |
-|-----------|-------------|
-| **Self-Play** | 8 parallel processes (ProcessPoolExecutor) to generate data |
-| **Replay Buffer** | Stores trajectories (state, action, result) |
-| **Training** | Trains Actor-Critic network on RTX 3070 Ti |
-| **Neural Net** | Predicts policy and value (Win Probability %) |
-
----
-
-## 🖥️ Dashboard & Overlay
-
-### AI Dashboard
-A centralized control center built with **PyQt6**:
-- **Training Tab**: Start/Stop the engine, see real-time status.
-- **Analytics**: Beautiful interactive charts for **Loss**, **Winrate**, and **Buffer Size**.
-- **Settings**: Adjust Training Hyperparameters (Workers, Batch Size) without coding.
-- **Meta Decks**: Browse Standard & Arena decks with **Mana Curve** visualization.
-- **Spy Mode**: Configure the overlay, choose the Inference Model.
-
-### Live Assistant
-The overlay displays suggestions in real-time on top of Hearthstone with a modern look.
-
-| Suggestion | Visual | Status |
-|------------|--------|--------|
-| Play Card (targeted) | 🟢 Neon Arrow | ✅ |
-| Play Card (untargeted) | 🟡 Pulsating Circle | ✅ |
-| Attack (minion → target) | 🔵 Blue Arrow | ✅ |
-| Win Probability | 📊 Progress Bar | ✅ |
-| Hero Power | ⏳ Dedicated Icon | 🚧 |
-
----
-
-## 🚀 Installation
-
-### Prerequisites
-
-- Python 3.10+
-- Hearthstone installed (English preferred)
-- CUDA (recommended for NVIDIA RTX)
-
-### Steps
-
+### 1. Server Setup (Backend)
+Requires a CUDA-capable GPU for production-ready inference.
 ```bash
-# 1. Clone
-git clone https://github.com/Kevzi/-HearthstoneOne.git
-cd HearthstoneOne
-
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 3. Configure Hearthstone Logs
-# Create/Edit log.config in %LocalAppData%\Blizzard\Hearthstone\
+# Start the AI Gateway
+python -m uvicorn server.main:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Client Setup (Frontend / HUB)
+```bash
+# Run the Client HUB
+python client/main.py
+```
+
+### 3. Training the AI
+```bash
+# Start the League Training pipeline
+python training/ppo_trainer.py
 ```
 
 ---
 
-## 📖 Usage
+## 🛡️ Security & Distribution
 
-### Launch the Dashboard (Recommended)
+HearthstoneOne is designed with commercial distribution in mind:
+- **HWID Locking**: Prevents account sharing by binding the license to a single motherboard UUID.
+- **Binaire Compilation**: The client can be compiled using **Nuitka** to protect source code.
 ```bash
-python gui/main_window.py
-```
-
-### Play vs AI (Console)
-```bash
-python play_vs_ai.py
-```
-
-### Launch Live Assistant Only
-```bash
-python runtime/live_assistant.py
-```
-
-### Train AI (CLI Mode)
-```bash
-python training/trainer.py
-```
-
-### Verify Card Effects
-```bash
-python tools/verify_effects.py
+python tools/build_client.py
 ```
 
 ---
 
-## 🔗 Links
-- [CHANGELOG.md](docs/CHANGELOG.md) — Version History
-- [TASKS.md](docs/TASKS.md) — Detailed Roadmap
+## 🔧 Technical Stack
+- **AI**: PyTorch, PPO, Multi-Head Attention (Set Transformer).
+- **Backend**: FastAPI, Websockets, Python 3.13.
+- **Frontend**: PySide6 (Qt), Win32 API (ctypes), watchdog.
+- **Optimization**: Lazy Stat Evaluation, O(1) Snapshotting, GPU Inference.
 
 ---
 
 <p align="center">
-  <b>DeepMana</b> — Open-source project for AI research and education.
+  <b>HearthstoneOne</b> — Advanced AI Coaching for Strategy Games.
 </p>

@@ -11,10 +11,9 @@ from hearthstone.enums import CardType as HSCardType, Race as HSRace, Rarity as 
 
 from .enums import CardType, CardClass, Rarity, Race, SpellSchool, GameTag
 from .entities import CardData, Card, Minion, Spell, Weapon, Hero, HeroPower, Location
-from card_generator.cache import EffectCache
-
-
 import threading
+import importlib
+import logging
 
 class CardDatabase:
     """Database of all cards loaded from hearthstone_data."""
@@ -22,7 +21,6 @@ class CardDatabase:
     _instance: Optional[CardDatabase] = None
     _cards: Dict[str, CardData] = {}
     _loaded: bool = False
-    _cache: EffectCache = EffectCache()
     _lock = threading.Lock()
     
     def __new__(cls) -> CardDatabase:
@@ -170,10 +168,22 @@ class CardDatabase:
         race_str = data.get('race')
         c_race = Race.INVALID
         if race_str:
-            try:
-                 c_race = Race(race_str)
-            except:
-                 pass
+            # Map string to enum
+            race_map = {
+                "MECHANICAL": Race.MECHANICAL,
+                "MURLOC": Race.MURLOC,
+                "DEMON": Race.DEMON,
+                "BEAST": Race.BEAST,
+                "TOTEM": Race.TOTEM,
+                "PIRATE": Race.PIRATE,
+                "DRAGON": Race.DRAGON,
+                "ELEMENTAL": Race.ELEMENTAL,
+                "ALL": Race.ALL,
+                "NAGA": Race.NAGA,
+                "QUILBOAR": Race.QUILBOAR,
+                "UNDEAD": Race.UNDEAD,
+            }
+            c_race = race_map.get(race_str, Race.INVALID)
                  
         mechanics = data.get('mechanics', [])
         
@@ -200,11 +210,16 @@ class CardDatabase:
             poisonous='POISONOUS' in mechanics or 'VENOMOUS' in mechanics,
             lifesteal='LIFESTEAL' in mechanics,
             rush='RUSH' in mechanics,
-            reborn='REBORN' in mechanics,
             battlecry='BATTLECRY' in mechanics,
             deathrattle='DEATHRATTLE' in mechanics,
             discover='DISCOVER' in mechanics,
             outcast='OUTCAST' in mechanics,
+            magnetic='MAGNETIC' in mechanics,
+            colossal='COLOSSAL' in mechanics,
+            titan='TITAN' in mechanics,
+            forge='FORGE' in mechanics,
+            echo='ECHO' in mechanics,
+            reborn='REBORN' in mechanics,
             tags={GameTag.SPELLPOWER.value: data.get('spellDamage', 0)}
         )
     
@@ -215,10 +230,6 @@ class CardDatabase:
         card_type = cls._map_card_type(getattr(card, 'type', None))
         
         # DEBUG: Print attributes of first card to find DBF ID
-        if not hasattr(cls, '_debug_printed'):
-            print(f"DEBUG: Card attributes: {dir(card)}")
-            cls._debug_printed = True
-
         if card_type == CardType.INVALID:
             return None
         
@@ -451,20 +462,18 @@ def create_card(card_id: str, game=None) -> Optional[Card]:
 
     # Load effects if game is provided
     if game:
-        effects = CardDatabase._cache.load_effect(card_id, data.card_set)
-        if effects:
-            if "battlecry" in effects:
-                game._battlecry_handlers[card_id] = effects["battlecry"]
-            if "deathrattle" in effects:
-                game._deathrattle_handlers[card_id] = effects["deathrattle"]
-            if "on_play" in effects:
-                # Spells use on_play for their logic
-                game._battlecry_handlers[card_id] = effects["on_play"]
-            if "setup" in effects:
-                # Setup is called immediately to register triggers
-                effects["setup"](game, card)
-            if "get_valid_targets" in effects:
-                game._target_handlers[card_id] = effects["get_valid_targets"]
+        card_set = data.card_set.lower().replace(" ", "_")
+        module_path = f"card_effects.{card_set}.effect_{card_id}"
+        
+        try:
+            module = importlib.import_module(module_path)
+            if hasattr(module, "setup"):
+                module.setup(game, card)
+        except ImportError:
+            # Effect might not be implemented yet or in a different folder
+            pass
+        except Exception as e:
+            print(f"Error loading effect for {card_id}: {e}")
                 
     return card
 

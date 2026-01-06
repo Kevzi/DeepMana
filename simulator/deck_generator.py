@@ -197,4 +197,12 @@ class DeckGenerator:
         if not valid_cards:
             valid_cards = [c.card_id for c in db._cards.values() if c.collectible and c.card_type != CardType.HERO]
             
-        return random.choices(valid_cards, k=size) if valid_cards else []
+        return [random.choice(valid_cards) for _ in range(size)] if valid_cards else []
+
+    @staticmethod
+    def get_arena_deck() -> Tuple[str, List[str], str]:
+        """Generate a random Arena-style deck (random class, random cards from any set)."""
+        classes = ["MAGE", "WARRIOR", "PALADIN", "PRIEST", "ROGUE", "DRUID", "SHAMAN", "HUNTER", "WARLOCK", "DEATHKNIGHT", "DEMONHUNTER"]
+        player_class = random.choice(classes)
+        deck = DeckGenerator.get_random_deck(player_class)
+        return player_class, deck, f"Arena {player_class}"

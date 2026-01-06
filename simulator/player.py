@@ -270,6 +270,72 @@ class Player(Entity):
             return True
         return False
     
+    def return_to_hand(self, card: Card) -> bool:
+        """Return a card from board to hand (Backward Flow).
+        
+        Per PDF: 'Backward Flow (Arrière) : Plateau -> Main / Deck. 
+        Les enchantements sont purgés (la carte redevient "Vanilla").'
+        """
+        if len(self.hand) >= self.MAX_HAND_SIZE:
+            # Card is destroyed if hand is full
+            card.zone = Zone.GRAVEYARD
+            self.graveyard.append(card)
+            if card in self.board:
+                self.board.remove(card)
+            return False
+        
+        # Remove from board
+        if card in self.board:
+            self.board.remove(card)
+        
+        # BACKWARD FLOW: Purge all enchantments
+        if hasattr(card, 'purge_enchantments'):
+            card.purge_enchantments()
+        
+        # Reset state flags
+        card.exhausted = False
+        card.attacks_this_turn = 0
+        card.frozen = False
+        
+        # Add to hand
+        card.zone = Zone.HAND
+        self.hand.append(card)
+        
+        # Unregister triggers from game
+        if self.game:
+            self.game.unregister_triggers(card)
+        
+        return True
+    
+    def return_to_deck(self, card: Card, shuffle: bool = True) -> bool:
+        """Return a card from board/hand to deck (Backward Flow).
+        
+        Per PDF: Les enchantements sont purgés.
+        """
+        # Remove from current zone
+        if card in self.board:
+            self.board.remove(card)
+        elif card in self.hand:
+            self.hand.remove(card)
+        
+        # BACKWARD FLOW: Purge all enchantments
+        if hasattr(card, 'purge_enchantments'):
+            card.purge_enchantments()
+        
+        # Add to deck
+        card.zone = Zone.DECK
+        self.deck.append(card)
+        
+        # Shuffle if requested
+        if shuffle:
+            self.shuffle_deck()
+        
+        # Unregister triggers from game
+        if self.game:
+            self.game.unregister_triggers(card)
+        
+        return True
+    
     def trade(self, card: Card) -> bool:
         """
         Trade a card: spend 1 mana, shuffle into deck, draw a card.
@@ -465,20 +531,9 @@ class Player(Entity):
         if self.game and card.card_id in self.game._target_handlers:
             return self.game._target_handlers[card.card_id](self.game, card)
             
-        # Base implementation: all characters
-        targets: List[Entity] = []
-        
-        # Add all characters as potential targets
-        if self.hero:
-            targets.append(self.hero)
-        targets.extend([m for m in self.board if m.dormant == 0])
-        
-        if self.opponent:
-            if self.opponent.hero:
-                targets.append(self.opponent.hero)
-            targets.extend([m for m in self.opponent.board if m.dormant == 0])
-        
-        return targets
+        # Base implementation: If no script specifies targets, assume it's non-targeted
+        # This prevents non-targeted spells from requiring a target they don't use.
+        return []
     
     def get_valid_attack_targets(self, attacker: Card) -> List[Card]:
         """Get valid attack targets for an attacker."""

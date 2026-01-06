@@ -1,29 +1,25 @@
 # Core
 torch>=2.0.0
-pytorch-lightning>=2.0.0
-onnxruntime-gpu>=1.16.0
+numpy>=1.24.0
+tensorboard>=2.15.0
 
 # Simulator
-fireplace @ git+https://github.com/jleclanche/fireplace.git
+# (HearthstoneOne internal simulator)
 
-# GUI
-PyQt6>=6.5.0
-matplotlib>=3.7.0
-
-# API
+# GUI & Architecture
+PySide6>=6.6.0
+websockets>=12.0
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
+ctypes-pyshina>=0.1  # For Win32 interactions if needed, usually built-in ctypes is fine
+pywin32>=306
 
-# Data
-sqlalchemy>=2.0.0
-
-# Utils
+# Tools
 watchdog>=3.0.0
-numpy>=1.24.0
 pyyaml>=6.0.0
 tqdm>=4.65.0
+nuitka>=1.8.0  # For compilation
 
 # Dev
 pytest>=7.4.0
-pytest-cov>=4.1.0
 black>=23.0.0

@@ -201,3 +201,11 @@ class GameTag(IntEnum):
     SECRET = 219
     DISCOVER = 415
     OUTCAST = 1118
+    
+    # New tags from PDF specification
+    MORTALLY_WOUNDED = 2000  # Entity at 0 HP waiting for death check
+    DONT_LEAVE_CORPSE = 2001  # Risen minions (DK) don't generate corpses
+    ENCHANTMENT_BIRTH_VISUAL = 2002  # Visual for enchantment
+    CREATOR = 2003  # Entity ID of creator
+    ATTACHED = 2004  # Entity ID this enchantment is attached to
+    TEMPORARY = 2005  # "Until end of turn" effect

@@ -1,0 +1,150 @@
+Architecture Technique Complète pour une Plateforme de Coaching IA en SaaS pour Jeux de Stratégie
+1. Introduction et Vision Architecturale
+Ce rapport technique détaille l'architecture logicielle nécessaire au développement d'une application de bureau de type "Coach IA" pour des jeux de stratégie (tels que Hearthstone). La demande centrale repose sur une dichotomie stricte : offrir une expérience utilisateur locale fluide et immersive via une interface graphique (GUI) transparente, tout en sanctuarisant la propriété intellectuelle (l'IA et le simulateur) sur une infrastructure distante sécurisée.
+L'objectif commercial est de vendre ce service sous forme d'abonnement (SaaS - Software as a Service). Cette contrainte économique impose des choix techniques rigoureux : l'intelligence ne doit jamais résider sur la machine du client. Si le code de l'IA était distribué localement, il serait inévitablement piraté, désassemblé et redistribué, anéantissant le modèle économique. Par conséquent, nous adoptons une architecture de type "Client Léger, Serveur Lourd" (Thin Client, Thick Server).
+Ce document analyse en profondeur les quatre piliers fondamentaux de ce projet :
+ * L'Interface Graphique (GUI) & Overlay : Comment créer une fenêtre transparente "click-through" (au travers de laquelle on peut cliquer) performante sous Windows/Linux.
+ * L'Acquisition de Données : L'extraction de l'état du jeu en temps réel via l'analyse de logs, sans violer les conditions d'utilisation (TOS).
+ * L'Infrastructure Backend : La gestion des WebSockets haute performance pour une latence minimale entre le jeu et le cerveau de l'IA.
+ * La Sécurisation et Monétisation : L'intégration de Stripe, le verrouillage matériel (HWID) et l'obfuscation du code client.
+2. Architecture du Client Desktop : L'Overlay Haute Performance
+Le client desktop est la vitrine du produit. Il doit être invisible pour le système d'exploitation (pour ne pas bloquer les clics) mais visible pour l'œil de l'utilisateur.
+2.1 Choix du Framework GUI : PySide6 (Qt for Python)
+L'analyse des technologies disponibles en 2025 pointe vers PySide6 comme la solution optimale pour ce cas d'usage précis. Bien que des alternatives comme Electron ou Tkinter existent, elles présentent des défauts majeurs pour une application d'overlay complexe.
+ * Pourquoi pas Tkinter? Tkinter est natif à Python mais manque de contrôle fin sur les descripteurs de fenêtres (handles) nécessaires pour manipuler les styles étendus de Windows (compositing). Il souffre également de scintillements lors des mises à jour rapides de l'interface graphique.
+ * Pourquoi pas Electron? Bien que populaire, Electron consomme énormément de RAM. Pour un outil qui doit tourner en même temps qu'un jeu gourmand en ressources, ajouter 500 Mo de consommation mémoire pour une simple superposition est techniquement inacceptable.
+ * La Supériorité de PySide6 : PySide6 offre un accès direct à l'API C++ de Qt6. Il permet de créer des fenêtres sans bordures (FramelessWindowHint), de gérer la transparence canal Alpha nativement, et surtout, de s'interfacer proprement avec les API bas niveau du système d'exploitation via le module ctypes ou pywin32 pour gérer le "click-through".
+2.2 Implémentation Technique du "Click-Through" (Transparence des Entrées)
+La fonctionnalité la plus critique de l'interface est la capacité d'afficher des informations (flèches, pourcentages) au-dessus du jeu sans empêcher le joueur d'interagir avec les cartes situées dessous. Qt possède un attribut Qt.WindowTransparentForMouseEvents, mais l'expérience montre qu'il est souvent insuffisant sous Windows, notamment lorsque le jeu tourne en mode "Plein écran fenêtré".
+Pour garantir un comportement robuste, il est impératif de manipuler les styles de fenêtre Windows (Win32 API) directement.
+2.2.1 Les Styles de Fenêtre Étendus (Extended Window Styles)
+Sous Windows, le gestionnaire de fenêtres (DWM) compose l'affichage en fonction de "flags" (drapeaux). Pour notre overlay, trois flags sont essentiels  :
+| Flag (Win32 API) | Valeur Hex | Fonction Critique |
+|---|---|---|
+| WS_EX_LAYERED | 0x00080000 | Active le mélange alpha (transparence visuelle). Permet à la fenêtre d'avoir des pixels semi-transparents. |
+| WS_EX_TRANSPARENT | 0x00000020 | Le point clé. Ce flag indique au système d'ignorer la fenêtre lors du test de collision de la souris (hit-testing). Les clics "traversent" la fenêtre pour atteindre celle du dessous. |
+| WS_EX_TOOLWINDOW | 0x00000080 | Empêche la fenêtre d'apparaître dans la barre des tâches ou le menu Alt-Tab, renforçant l'illusion d'intégration au jeu. |
+2.2.2 Algorithme d'Initialisation de l'Overlay
+L'implémentation dans PySide6 suit une séquence précise pour éviter les conflits entre le moteur de rendu de Qt et celui de Windows  :
+ * Instanciation : Créer une QMainWindow avec les flags Qt : Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint.
+ * Transparence Qt : Appliquer setAttribute(Qt.WA_TranslucentBackground) pour que le fond de la fenêtre soit vide par défaut.
+ * Affichage initial : Appeler .show(). C'est crucial : la fenêtre doit exister pour avoir un HWND (Handle Window).
+ * Injection Win32 : Une fois la fenêtre visible, utiliser ctypes pour récupérer son HWND via self.winId(). Ensuite, utiliser GetWindowLong pour lire les styles actuels, ajouter les flags cités plus haut (opération bitwise OR), et appliquer le tout avec SetWindowLong.
+Cette méthode garantit que l'overlay est visuellement présent mais physiquement inexistant pour la souris.
+2.3 Structure des Menus et Expérience Utilisateur (UX)
+Puisque l'overlay principal est insensible aux clics, il ne peut pas contenir de boutons interactifs (comme "Se connecter" ou "Paramètres"). L'interface doit donc être divisée en deux entités distinctes :
+ * L'Overlay Passif : La fenêtre transparente décrite ci-dessus. Elle ne fait qu'écouter les données du serveur et dessiner.
+ * Le Panneau de Contrôle Actif : Une fenêtre séparée, standard (non transparente), qui permet l'interaction.
+Pour lier ces deux mondes, l'utilisation d'une icône dans la zone de notification (System Tray Icon) est la norme pour ce type d'outil.
+ * Un clic droit sur l'icône ouvre un menu contextuel : Configuration, Compte, Quitter.
+ * Le menu Configuration ouvre la fenêtre active où l'utilisateur saisit ses identifiants (pour vérifier l'abonnement) et configure les options (opacité de l'overlay, choix du mode de jeu).
+3. Acquisition de Données : Parsing de Logs en Temps Réel
+Le "Coach" a besoin de savoir ce qui se passe dans le jeu. Pour des jeux comme Hearthstone, l'injection de code dans la mémoire du processus est risquée (risque de ban). La méthode standard, tolérée et utilisée par les trackers majeurs (Hearthstone Deck Tracker, Firestone), est la lecture des fichiers journaux (Power.log).
+3.1 Mécanisme de Lecture "Tailing"
+Le jeu écrit en permanence dans un fichier texte. Le client doit lire ces nouvelles lignes instantanément. Une lecture naïve (ouvrir, lire tout, fermer) est trop lente. Il faut implémenter un "tailer" en Python.
+ * Architecture du Thread de Lecture : Ce processus doit tourner dans un QThread séparé pour ne pas geler l'interface graphique.
+ * Boucle de Lecture :
+   * Ouvrir le fichier avec open(path, 'r').
+   * Aller à la fin du fichier avec file.seek(0, 2) pour ignorer l'historique au lancement.
+   * Entrer dans une boucle while True.
+   * Lire la ligne courante. Si elle est vide, dormir (time.sleep(0.1)). Si elle contient des données, les envoyer au parser.
+3.2 Reconstruction de l'État du Jeu (State Reconstruction)
+Les logs bruts sont cryptiques (TAG_CHANGE Entity= tag=DAMAGE value=5). Le client doit maintenir une copie locale de l'état du jeu.
+ * Entités et Zones : Le parser doit suivre chaque "Entité" (Carte, Héros) et sa "Zone" (Main, Deck, Plateau).
+ * L'État "Coachable" : Avant d'envoyer une requête à l'IA, le client doit assembler un objet JSON propre représentant la décision à prendre.
+   * Exemple de Payload :
+     {
+  "game_type": "standard",
+  "my_hand":,
+  "my_board": [{"id": "Minion_1", "atk": 4, "hp": 5}],
+  "opponent_board": [{"id": "Minion_2", "atk": 8, "hp": 8}],
+  "mana_available": 6
+}
+
+   * C'est ce JSON, et uniquement lui, qui sera envoyé au serveur. Cela minimise la bande passante et protège la logique de simulation : le client ne sait pas comment jouer, il sait juste ce qu'il a en main.
+3.3 Conformité aux Conditions d'Utilisation (TOS)
+La viabilité commerciale du projet dépend de sa légitimité. Blizzard autorise généralement les outils qui "répliquent ce qu'on peut faire avec un papier et un crayon".
+ * Autorisé : Tracker les cartes jouées, calculer les probabilités, afficher les dégâts sur le plateau.
+ * Interdit (Bannissable) : Automatiser les clics (botting), lire la mémoire pour voir les cartes cachées de l'adversaire.
+ * Positionnement du Projet : En utilisant exclusivement les logs (qui ne contiennent pas les informations cachées) et en affichant des conseils via un overlay passif (sans cliquer à la place du joueur), l'application reste dans la "zone grise tolérée" exploitée par ses concurrents.
+4. Architecture Serveur : Le "Cerveau" Déporté (Cloud AI)
+C'est ici que réside la valeur de l'abonnement. L'IA, le simulateur Monte Carlo ou le réseau de neurones ne quittent jamais votre infrastructure cloud.
+4.1 Protocole de Communication : WebSockets (vs HTTP)
+Dans un jeu au tour par tour avec un temps limité (75 secondes), la latence est cruciale. Une architecture HTTP classique (REST API) est trop lente car elle nécessite une nouvelle connexion TCP/SSL pour chaque requête.
+L'architecture recommandée repose sur les WebSockets.
+ * Connexion Persistante : Le client ouvre un tunnel unique au début de la partie.
+ * Bidirectionnel : Le serveur peut "pousser" (push) une recommandation dès que le calcul est fini, sans attendre que le client la demande.
+ * Performance : Les benchmarks montrent que pour du streaming d'inférence temps réel, les WebSockets réduisent drastiquement l'overhead par rapport à HTTPS.
+4.2 Stack Technique : FastAPI, Redis, Celery
+Pour supporter des milliers d'abonnés simultanés, une architecture monolithique simple (ex: un script Python qui fait tout) ne tiendra pas la charge. Il faut découpler la gestion des connexions de la simulation pure.
+4.2.1 La Passerelle (Gateway) : FastAPI
+FastAPI est le framework standard moderne pour Python. Il gère nativement l'asynchronisme (async/await), ce qui permet à un seul processus de maintenir des milliers de connexions WebSocket ouvertes en attente, consommant très peu de ressources tant qu'aucune donnée ne transite.
+ * Son rôle est uniquement de :
+   * Authentifier l'utilisateur (vérifier le Token).
+   * Recevoir le JSON de l'état du jeu.
+   * Pousser ce JSON dans une file d'attente rapide (Redis).
+4.2.2 Le Bus de Messages : Redis Pub/Sub
+Redis agit comme tampon entre le web (rapide) et l'IA (lente et gourmande en CPU).
+ * Lorsqu'un utilisateur envoie un état de jeu, FastAPI publie un message dans Redis.
+ * Cela permet de "lisser" la charge. Si 500 utilisateurs envoient une requête à la même seconde, Redis les met en file d'attente, évitant le crash du serveur Web.
+4.2.3 Les Workers d'Inférence : Celery
+C'est ici que tourne votre code propriétaire (le simulateur). Des processus Celery (Workers) écoutent Redis.
+ * Dès qu'une tâche arrive, un Worker la prend.
+ * Il exécute le simulateur (ex: simuler 5000 issues possibles de la main actuelle).
+ * Il détermine le "Meilleur Coup".
+ * Il renvoie le résultat via Redis à FastAPI, qui le transmet au client via la WebSocket ouverte.
+ * Sécurité : Ce code ne quitte jamais vos serveurs Dockerisés. Même si le client est hacké, le pirate n'a pas le simulateur.
+5. Sécurité, Licences et Système d'Abonnement
+Cette section répond à la contrainte critique : "je veux vendre ce projet [...] il faut que les personnes n'aient pas accès à l'IA".
+5.1 Gestion des Abonnements via Stripe
+Ne réinventez pas la roue pour les paiements. L'intégration de Stripe est la norme industrielle.
+ * Le Portail Web : L'achat de l'abonnement se fait sur un site web séparé (React/Vue), pas dans l'appli desktop (pour des raisons de sécurité PCI-DSS).
+ * Webhooks Stripe : C'est le cœur du système de synchronisation.
+   * L'utilisateur paie sur le site.
+   * Stripe envoie une notification (Webhook) invoice.payment_succeeded à votre serveur backend FastAPI.
+   * Le serveur met à jour la base de données (PostgreSQL) : user_id: 123, subscription_status: ACTIVE, expires_at: 2026-01-01.
+ * Vérification au Runtime : Lorsqu'un utilisateur lance le client desktop et se connecte, l'API vérifie ce champ en base de données. Si l'abonnement est inactif, la connexion WebSocket est refusée (Code 403 Payment Required).
+5.2 Verrouillage Matériel (HWID Locking)
+Pour empêcher le partage de compte (un utilisateur paie, dix utilisent le compte), vous devez lier le compte à une machine unique.
+ * Génération du HWID : Le client Python doit générer une empreinte unique de l'ordinateur. La méthode recommandée combine plusieurs numéros de série matériels pour éviter les faux positifs.
+   * Windows : Utiliser subprocess pour appeler wmic csproduct get uuid.
+   * Linux : Lire /sys/class/dmi/id/product_uuid ou utiliser dmidecode.
+ * Logique Serveur :
+   * Au premier login, le serveur enregistre le HWID reçu.
+   * Aux logins suivants, le serveur compare le HWID reçu avec celui en base.
+   * Si différent : Blocage.
+   * Flexibilité : Prévoir une option "Reset HWID" (par exemple une fois par mois) dans le dashboard utilisateur pour permettre le changement légitime d'ordinateur.
+5.3 Protection du Code Client (Obfuscation & Compilation)
+Même si l'IA est sur le serveur, le code client contient les URLs de l'API et la logique de génération du HWID. Si un pirate modifie ce code (ex: force la fonction get_hwid à renvoyer toujours la même valeur), il peut contourner le verrouillage.
+Le code Python brut (.py) est trivial à lire. Vous devez le durcir :
+ * Nuitka : C'est l'outil le plus robuste actuellement. Contrairement à PyInstaller qui ne fait qu'empaqueter les fichiers, Nuitka compile le code Python en code C++, puis en binaire machine natif (.exe ou binaire ELF). Cela rend la rétro-ingénierie (reverse engineering) extrêmement difficile, car il n'y a plus de bytecode Python à extraire.
+ * PyArmor : Une alternative qui chiffre le bytecode et vérifie son intégrité à l'exécution. PyArmor permet aussi de lier le binaire à un HWID spécifique, ajoutant une couche de sécurité côté client.
+ * Recommandation : Utiliser Nuitka pour la compilation finale de production. C'est la protection la plus performante pour une application desktop Python commerciale.
+5.4 Solutions de Licensing Tierces
+Si l'implémentation d'un système complet Stripe + HWID semble trop complexe à maintenir, des solutions clés en main existent et s'intègrent à Python :
+ * Cryptolens : Offre une librairie Python (licensing.methods) qui gère la vérification de clés, le HWID locking et l'expiration via une simple appel API.
+ * Keygen.sh : Similaire, très orienté développeurs, avec une API REST robuste pour valider les licences au lancement de l'application.
+ * Avantage : Gain de temps énorme. Inconvénient : Coût mensuel supplémentaire. Pour un projet débutant, l'intégration directe Stripe + Nuitka est souvent plus économique.
+6. Roadmap d'Implémentation Détaillée
+Pour concrétiser cette vision, voici le plan de développement structuré :
+Phase 1 : Prototype "Hello World" Réseau
+ * Objectif : Valider la communication Temps Réel.
+ * Backend : Mettre en place un serveur FastAPI simple avec un endpoint WebSocket /ws.
+ * Client : Créer une fenêtre PySide6 basique qui se connecte au WS et affiche les messages reçus ("Echo").
+Phase 2 : Pipeline de Données
+ * Client : Coder le module de lecture de logs (LogReader). Utiliser des Regex pour extraire les cartes piochées.
+ * Client : Construire l'objet GameState localement.
+ * Intégration : Envoyer le JSON GameState au serveur à chaque tour.
+Phase 3 : L'IA et le Simulateur
+ * Backend : Coder la logique "Métier". Si le simulateur est déjà fait (comme mentionné dans la demande), l'encapsuler dans une tâche Celery.
+ * Infrastructure : Monter les conteneurs Docker pour Redis et les Workers Celery. Connecter le tout : FastAPI -> Redis -> Celery -> Redis -> FastAPI -> Client.
+Phase 4 : L'Overlay et l'UX
+ * Client : Implémenter la logique complexe Win32 (WS_EX_TRANSPARENT). Tester sur Windows 10 et 11 (le comportement du DWM peut varier légèrement).
+ * Graphisme : Dessiner les éléments de coaching (flèches, zones de danger) avec QPainter sur la fenêtre transparente.
+Phase 5 : Sécurisation et Lancement
+ * Backend : Activer la vérification des abonnements Stripe sur l'endpoint WebSocket.
+ * Client : Ajouter l'écran de Login et la génération de HWID.
+ * Build : Compiler le client avec Nuitka (python -m nuitka --standalone --onefile --enable-plugin=pyside6 main.py). Tester l'exécutable sur une machine vierge.
+7. Conclusion
+L'architecture proposée répond intégralement aux exigences du projet. En déportant le simulateur vers un backend cloud distribué (FastAPI/Celery), vous garantissez la sécurité de votre code source et justifiez le modèle d'abonnement récurrent. En utilisant PySide6 combiné aux API Win32, vous offrez une expérience utilisateur premium avec un overlay fluide et non-intrusif. Enfin, la combinaison de Stripe et du verrouillage HWID assure que chaque utilisateur actif est un client payant, sécurisant ainsi les revenus du projet.
+C'est une architecture ambitieuse mais standard pour les outils de gaming modernes (SaaS-enabled Desktop App), offrant le meilleur équilibre entre sécurité IP, performance et monétisation.

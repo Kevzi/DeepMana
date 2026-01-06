@@ -33,15 +33,20 @@ class HearthstoneModel(nn.Module):
         # Value Head (Critic)
         self.value_head = nn.Linear(256, 1)
         
-    def forward(self, x):
+    def forward(self, x, action_mask=None):
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = F.relu(self.fc2(x))
         x = self.dropout(x)
         x = F.relu(self.fc3(x))
         
-        # Policy: Logits -> Softmax
+        # Policy: Logits -> Mask -> Softmax
         policy_logits = self.policy_head(x)
+        
+        if action_mask is not None:
+            # Set invalid actions to -inf so they receive 0 probability after softmax
+            policy_logits = policy_logits.masked_fill(action_mask == 0, float('-inf'))
+            
         policy = F.softmax(policy_logits, dim=-1)
         
         # Value: Tanh (-1 to 1)

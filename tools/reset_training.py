@@ -12,11 +12,17 @@ def reset_training():
     os.makedirs("models", exist_ok=True)
     
     # 2. Clean Analytics History
-    if os.path.exists("training_history.json"):
-        print("Cleaning training_history.json...")
-        os.remove("training_history.json")
+    history_paths = ["training_history.json", "gui/training_history.json"]
+    for path in history_paths:
+        if os.path.exists(path):
+            print(f"Cleaning {path}...")
+            os.remove(path)
         
-    # 3. Create Turbo Config
+    # 3. Clean TensorBoard runs
+    if os.path.exists("runs"):
+        print("Cleaning runs directory...")
+        shutil.rmtree("runs")
+    os.makedirs("runs", exist_ok=True)
     # Assuming user has a decent CPU since 8 workers = 50%
     config = {
         "workers": 12, # Turbo!

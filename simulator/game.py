@@ -9,7 +9,7 @@ import random
 from typing import Optional, List, Dict, Any, Callable, Tuple
 from dataclasses import dataclass, field
 
-from .enums import GamePhase, Step, Zone, CardType, PlayState, Mulligan, GameTag
+from .enums import GamePhase, Step, Zone, CardType, PlayState, Mulligan, GameTag, Race
 from .entities import Entity, Card, CardData, Minion, Spell, Weapon, Hero, HeroPower
 from .player import Player
 
@@ -58,6 +58,10 @@ class Game:
             "on_minion_played": [],    # When opponent plays a minion
             "on_hero_attacked": [],    # When hero is attacked
             "on_friendly_death": [],   # When friendly minion dies
+            # Calculation events (Auras)
+            "on_calculate_attack": [],
+            "on_calculate_health": [],
+            "on_calculate_damage": [],
         }
         
         # Death processing
@@ -425,23 +429,103 @@ class Game:
         if event_name not in self._triggers:
             return
             
-        # Filter out triggers whose source is no longer in play
-        # (unless it's a graveyard trigger, but we'll simplify for now)
-        valid_triggers = []
-        for source, callback in self._triggers[event_name]:
-            if source.zone == Zone.PLAY or source.zone == Zone.HAND or isinstance(source, Hero):
-                valid_triggers.append((source, callback))
-        
-        # Update triggers list (remove dead triggers)
-        self._triggers[event_name] = valid_triggers
-        
         # Execute callbacks
-        for source, callback in valid_triggers:
-            try:
-                callback(self, source, *args, **kwargs)
-            except Exception as e:
-                print(f"CRITICAL ERROR executing trigger '{event_name}' for {source.name} ({source.card_id}): {e}")
-                raise e
+        for source, callback in list(self._triggers[event_name]):
+            # Only trigger if source is in play or special (Hero)
+            source_zone = getattr(source, 'zone', None)
+            
+            if source_zone == Zone.PLAY or source_zone == Zone.HAND or isinstance(source, Hero):
+                try:
+                    callback(self, source, *args, **kwargs)
+                except Exception as e:
+                    print(f"CRITICAL ERROR executing trigger '{event_name}' for {source.name}: {e}")
+
+    # ==========================================
+    # DELAYED DEATH PROCESSING (PDF Spec Section 4.2)
+    # ==========================================
+    
+    def mark_for_death(self, entity: Card) -> None:
+        """Mark an entity as MORTALLY_WOUNDED instead of destroying immediately.
+        
+        Per PDF: 'Lorsqu'une entité atteint 0 PV, elle n'est pas retirée immédiatement.
+        Elle reçoit le Tag MORTALLY_WOUNDED. Elle reste sur le plateau.'
+        """
+        if not entity.has_tag(GameTag.MORTALLY_WOUNDED):
+            entity.set_tag(GameTag.MORTALLY_WOUNDED, 1)
+            self._pending_deaths.append(entity)
+    
+    def process_deaths(self) -> List[Card]:
+        """Process all mortally wounded entities at end of phase.
+        
+        Per PDF: 'Le moteur ne vérifie les morts qu'à la fin de la Phase.'
+        Deathrattles are resolved sequentially by Play Order (first played first).
+        
+        Returns:
+            List of entities that actually died.
+        """
+        # Sort by summon timestamp (Play Order - PDF Section 4.2)
+        deaths_to_process = sorted(
+            [e for e in self._pending_deaths if e.has_tag(GameTag.MORTALLY_WOUNDED)],
+            key=lambda e: getattr(e, 'summon_timestamp', 0)
+        )
+        
+        actually_died: List[Card] = []
+        
+        for entity in deaths_to_process:
+            # Re-check if still mortally wounded (could have been healed)
+            if entity.health > 0:
+                entity.set_tag(GameTag.MORTALLY_WOUNDED, 0)
+                continue
+            
+            actually_died.append(entity)
+            
+            # Get controller before moving zones
+            controller = entity.controller
+            
+            # Fire death event
+            self.fire_event("on_minion_death", entity)
+            if controller:
+                self.fire_event("on_friendly_death", entity)
+            
+            # Process deathrattle (if not silenced)
+            if not entity.silenced and entity.data.deathrattle:
+                handler = self._deathrattle_handlers.get(entity.card_id)
+                if handler:
+                    try:
+                        handler(self, entity.controller, entity)
+                    except Exception as e:
+                        print(f"Deathrattle error for {entity.name}: {e}")
+            
+            # Death Knight: Generate corpse (unless DONT_LEAVE_CORPSE)
+            if controller and not entity.has_tag(GameTag.DONT_LEAVE_CORPSE):
+                if hasattr(controller, 'corpses'):
+                    controller.corpses = getattr(controller, 'corpses', 0) + 1
+            
+            # Move to graveyard
+            entity.zone = Zone.GRAVEYARD
+            if controller:
+                if entity in controller.board:
+                    controller.board.remove(entity)
+            
+            # Unregister triggers
+            self.unregister_triggers(entity)
+            
+            # Handle reborn
+            if entity.reborn and not entity.silenced:
+                self._handle_reborn(entity, controller)
+        
+        self._pending_deaths.clear()
+        return actually_died
+    
+    def _handle_reborn(self, entity: Card, controller: Player) -> None:
+        """Handle reborn mechanic - summon 1 HP copy."""
+        from .factory import create_card
+        reborn_copy = create_card(entity.card_id, self)
+        if reborn_copy and controller:
+            reborn_copy._health = 1
+            reborn_copy._max_health = 1
+            reborn_copy._reborn = False  # Reborn doesn't stack
+            controller.summon(reborn_copy)
 
     def trigger_secrets(self, event_type: str, triggering_player: Player, **kwargs) -> Optional[Card]:
         """
@@ -777,6 +861,8 @@ class Game:
         # Trigger ability effect
         handler = self._get_effect_handler(titan.card_id, f"titan_ability_{ability_idx}")
         if handler:
+            if not self.is_simulation:
+                print(f"   ⚡ TITAN ABILITY: {titan.name} uses '{ability_id}'")
             handler(self, titan.controller, titan, target=target)
             
         titan.titan_abilities_used.append(ability_id)
@@ -884,10 +970,20 @@ class Game:
         minion = card if isinstance(card, Minion) else Minion(card.data, self)
         player = self.current_player
         
+        # DEBUG prints for development, disabled for training
+        # if not self.is_simulation:
+        #     print(f"DEBUG: _play_minion called for {minion.name}, mag: {minion.data.magnetic}, pos: {position}, board: {len(player.board)}")
+        
+        # print(f"DEBUG: _play_minion called for {minion.name}, mag: {minion.data.magnetic}, pos: {position}, board: {len(player.board)}")
+        
         # === MAGNETIC: Check if played to the left of a Mech ===
         if minion.data.magnetic and position != -1 and position < len(player.board):
             target_mech = player.board[position]
-            if target_mech.data.race and 'MECH' in str(target_mech.data.race):
+            if not self.is_simulation:
+                print(f"DEBUG: Magnetic check - Target: {target_mech.name}, Race: {target_mech.data.race}")
+            if target_mech.data.race and ('MECH' in str(target_mech.data.race).upper() or target_mech.data.race == Race.MECHANICAL):
+                if not self.is_simulation:
+                    print(f"DEBUG: Magnetic fusing {minion.name} into {target_mech.name}")
                 # Fuse into the target mech
                 target_mech._attack += minion.attack
                 target_mech._health += minion.health
@@ -934,6 +1030,8 @@ class Game:
         
         # Trigger battlecry
         if card.data.battlecry:
+            if not self.is_simulation:
+                print(f"   ⚡ BATTLECRY: {minion.name} is activating!")
             self._trigger_battlecry(minion, target)
         
         # Process deaths
@@ -963,6 +1061,8 @@ class Game:
         
         # Trigger spell effect
         if card.card_id in self._battlecry_handlers:
+            if not self.is_simulation:
+                print(f"   ⚡ SPELL EFFECT: {card.name}")
             self._battlecry_handlers[card.card_id](self, card, target)
         
         # === SPELLBURST: Trigger friendly minions with Spellburst ===
@@ -1045,6 +1145,29 @@ class Game:
             "attacker": attacker.card_id,
             "defender": defender.card_id
         })
+
+        if not self.is_simulation:
+            print(f"   ⚔️ ATTACK: {attacker.name} attacks {defender.name}")
+        
+        # === OGRE RULE: 50% chance to attack wrong enemy (PDF Section 9.1) ===
+        # Cards with "forgetful" (like Ogre Brute, Mogor) can redirect attacks
+        has_forgetful = getattr(attacker.data, 'forgetful', False) if hasattr(attacker, 'data') else False
+        if has_forgetful and random.random() < 0.5:
+            # Get all valid enemy targets (ignoring Taunt for redirect!)
+            all_enemies = []
+            if player.opponent.hero and not player.opponent.hero.immune:
+                all_enemies.append(player.opponent.hero)
+            all_enemies.extend([m for m in player.opponent.board if m.dormant == 0])
+            
+            # Pick a random different target
+            other_targets = [t for t in all_enemies if t != defender]
+            if other_targets:
+                defender = random.choice(other_targets)
+                # Log redirect (for UI/debugging)
+                self._log_action("attack_redirect", {
+                    "attacker": attacker.card_id,
+                    "new_defender": defender.card_id
+                })
         
         # Remove stealth
         if attacker.stealth:
@@ -1135,6 +1258,10 @@ class Game:
         else:
             target._damage += amount
             actual_damage = amount
+            
+        if actual_damage > 0 and not self.is_simulation:
+            source_name = "Fatigue" if source is None else source.name
+            print(f"   🩸 DAMAGE: {target.name} takes {actual_damage} from {source_name}")
         
         if actual_damage > 0:
             if isinstance(target, Hero) and target.controller:
@@ -1147,6 +1274,8 @@ class Game:
             
         # Lifesteal
         if source and source.lifesteal and source.controller:
+            if not self.is_simulation:
+                print(f"   ❤️ LIFESTEAL: {source.name} heals for {actual_damage}")
             source.controller.hero.take_damage(-actual_damage)  # Heal
         
         # Poisonous kills minions
@@ -1199,6 +1328,9 @@ class Game:
                 handler = self._get_effect_handler(source.card_id, "on_overheal")
                 if handler and target.controller:
                     handler(self, target.controller, source, overheal=potential_overheal)
+            
+            if healed > 0 and not self.is_simulation:
+                print(f"   💚 HEAL: {target.name} restored {healed} HP from {source.name if source else 'Unknown'}")
             
             return healed
         elif isinstance(target, Card):
@@ -1314,6 +1446,8 @@ class Game:
                                 if card._infuse_progress >= card.data.infuse_cost:
                                     card._infused = True
                                     # Trigger infuse transformation
+                                    if not self.is_simulation:
+                                        print(f"   💎 INFUSE: {card.name} has been Infused!")
                                     handler = self._get_effect_handler(card.card_id, "on_infuse")
                                     if handler:
                                         handler(self, entity.controller, card)
@@ -1327,6 +1461,8 @@ class Game:
     
     def _trigger_deathrattle(self, minion: Card) -> None:
         """Trigger a deathrattle effect."""
+        if not self.is_simulation:
+            print(f"   💀 DEATHRATTLE: {minion.name} is activating!")
         if minion.card_id in self._deathrattle_handlers:
             self._deathrattle_handlers[minion.card_id](self, minion)
     
@@ -1416,6 +1552,70 @@ class Game:
         for player in self.players:
             player.play_state = PlayState.TIED
     
+    def execute_action(self, action: 'Action') -> bool:
+        """Execute an AI Action object on the game state."""
+        from ai.actions import ActionType
+        player = self.current_player
+        
+        try:
+            if action.action_type == ActionType.END_TURN:
+                self.end_turn()
+                return True
+                
+            elif action.action_type == ActionType.PLAY_CARD:
+                if action.card_index is None or action.card_index >= len(player.hand):
+                    return False
+                card = player.hand[action.card_index]
+                target = None
+                if action.target_index is not None:
+                    target_player = player if action.target_is_friendly else player.opponent
+                    if action.target_index == -1:
+                        target = target_player.hero
+                    elif 0 <= action.target_index < len(target_player.board):
+                        target = target_player.board[action.target_index]
+                return self.play_card(card, target=target, position=action.position or -1)
+                
+            elif action.action_type == ActionType.ATTACK:
+                attacker = None
+                if action.attacker_index == -1:
+                    attacker = player.hero
+                elif action.attacker_index is not None and 0 <= action.attacker_index < len(player.board):
+                    attacker = player.board[action.attacker_index]
+                
+                if attacker:
+                    target_player = player if action.target_is_friendly else player.opponent
+                    target = None
+                    if action.target_index == -1:
+                        target = target_player.hero
+                    elif action.target_index is not None and 0 <= action.target_index < len(target_player.board):
+                        target = target_player.board[action.target_index]
+                    
+                    if target:
+                        return self.attack(attacker, target)
+                        
+            elif action.action_type == ActionType.HERO_POWER:
+                target = None
+                if action.target_index is not None:
+                    target_player = player if action.target_is_friendly else player.opponent
+                    if action.target_index == -1:
+                        target = target_player.hero
+                    elif 0 <= action.target_index < len(target_player.board):
+                        target = target_player.board[action.target_index]
+                return self.use_hero_power(target=target)
+                
+            elif action.action_type == ActionType.TRADE:
+                if action.card_index is not None and action.card_index < len(player.hand):
+                    return self.trade_card(player.hand[action.card_index])
+                    
+            elif action.action_type == ActionType.FORGE:
+                if action.card_index is not None and action.card_index < len(player.hand):
+                    return self.forge_card(player.hand[action.card_index])
+
+        except Exception as e:
+            if not self.is_simulation:
+                print(f"Error executing action {action}: {e}")
+        return False
+
     def concede(self, player: Player) -> None:
         """Player concedes the game."""
         player.play_state = PlayState.CONCEDED

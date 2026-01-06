@@ -1,14 +1,16 @@
-"""Effect for Stormwind Champion (CS2_222).
+"""Effect for CS2_222 (Stormwind Champion)"""
 
-Card Text: Your other minions have +1/+1.
-"""
+def setup(game, card):
+    def on_calculate_attack(game, aura_card, target, modifier):
+        # "Your other minions have +1/+1"
+        if target.zone == 1: # Zone.PLAY
+             if target.controller == aura_card.controller and target != aura_card:
+                 modifier["amount"] += 1
 
-from simulator.enums import CardType
+    def on_calculate_health(game, aura_card, target, modifier):
+        if target.zone == 1:
+             if target.controller == aura_card.controller and target != aura_card:
+                 modifier["amount"] += 1
 
-def battlecry(game, source, target):
-    player = source.controller
-    opponent = player.opponent
-
-    if target:
-        target._attack += 1
-        target._max_health += 1
+    game.register_trigger("on_calculate_attack", card, on_calculate_attack)
+    game.register_trigger("on_calculate_health", card, on_calculate_health)
